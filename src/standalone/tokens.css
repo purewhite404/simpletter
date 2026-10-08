@@ -1,0 +1,151 @@
+/**
+ * Brighterm design tokens.
+ *
+ * Every built-in tile, every plugin tile (via the Host API's `theme` call)
+ * and the tiling chrome itself draw from this single file. Nothing outside
+ * this file should hardcode a color, spacing value, radius or font — that's
+ * what keeps a Web-embedded Gmail tile, a native Terminal tile and an
+ * AI-generated Notes plugin looking like one coherent app instead of three
+ * stitched-together products.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Surfaces (dark, layered by elevation) ---- */
+  --bt-bg-0: #0b0c10; /* window background, behind everything */
+  --bt-bg-1: #121319; /* dock, tile chrome */
+  --bt-bg-2: #1a1c24; /* tile body / cards */
+  --bt-bg-3: #232530; /* hovered / raised surfaces */
+  --bt-bg-overlay: rgba(8, 9, 12, 0.72); /* command palette / modal backdrop */
+
+  /* ---- Text ---- */
+  --bt-text-primary: #eef0f5;
+  --bt-text-secondary: #9ba0b0;
+  --bt-text-muted: #6b7080;
+  --bt-text-on-accent: #0b0c10;
+
+  /* ---- Borders ---- */
+  --bt-border: #2a2d3a;
+  --bt-border-strong: #3a3e4f;
+
+  /* ---- Accent (HQ actions, active tile, focus rings) ---- */
+  --bt-accent: #5b8cff;
+  --bt-accent-strong: #7ba1ff;
+  --bt-accent-soft: rgba(91, 140, 255, 0.16);
+
+  /* ---- Status ---- */
+  --bt-success: #3ecf8e;
+  --bt-warning: #e8b339;
+  --bt-danger: #ef5a6f;
+  --bt-danger-soft: rgba(239, 90, 111, 0.16);
+
+  /* ---- Priority (HQ cards) ---- */
+  --bt-priority-urgent: var(--bt-danger);
+  --bt-priority-high: var(--bt-warning);
+  --bt-priority-normal: var(--bt-accent);
+  --bt-priority-low: var(--bt-text-muted);
+
+  /* ---- Typography ---- */
+  --bt-font-ui:
+    -apple-system, 'Segoe UI', 'Yu Gothic UI', 'Noto Sans JP', Roboto, sans-serif;
+  --bt-font-mono: 'Cascadia Code', 'SF Mono', Consolas, 'Menlo', monospace;
+  --bt-font-size-xs: 11px;
+  --bt-font-size-sm: 12.5px;
+  --bt-font-size-md: 14px;
+  --bt-font-size-lg: 16px;
+  --bt-font-size-xl: 20px;
+
+  /* ---- Spacing scale ---- */
+  --bt-space-1: 4px;
+  --bt-space-2: 8px;
+  --bt-space-3: 12px;
+  --bt-space-4: 16px;
+  --bt-space-5: 24px;
+  --bt-space-6: 32px;
+
+  /* ---- Shape ---- */
+  --bt-radius-sm: 6px;
+  --bt-radius-md: 10px;
+  --bt-radius-lg: 14px;
+
+  /* ---- Motion ---- */
+  --bt-duration-fast: 100ms;
+  --bt-duration-base: 180ms;
+  --bt-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* ---- Layout constants ---- */
+  --bt-dock-width: 64px;
+  --bt-tile-chrome-height: 32px;
+  --bt-statusbar-height: 28px;
+
+  --bt-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --bt-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --bt-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * Brighterm is dark-first (it's a command center meant to sit on screen all
+ * day), but a plugin or a future setting may request light mode explicitly.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bt-bg-0: #eef0f4;
+  --bt-bg-1: #ffffff;
+  --bt-bg-2: #f5f6fa;
+  --bt-bg-3: #e8eaf1;
+  --bt-bg-overlay: rgba(20, 22, 30, 0.35);
+
+  --bt-text-primary: #14161c;
+  --bt-text-secondary: #4d525f;
+  --bt-text-muted: #7a7f8c;
+  --bt-text-on-accent: #ffffff;
+
+  --bt-border: #dcdfe6;
+  --bt-border-strong: #c4c8d2;
+
+  --bt-accent: #3a66d6;
+  --bt-accent-strong: #2951b8;
+  --bt-accent-soft: rgba(58, 102, 214, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bt-bg-0);
+  color: var(--bt-text-primary);
+  font-family: var(--bt-font-ui);
+  font-size: var(--bt-font-size-md);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+#root {
+  height: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bt-border-strong);
+  border-radius: 4px;
+}
+
+a {
+  color: var(--bt-accent-strong);
+}
+
+button {
+  font-family: inherit;
+}

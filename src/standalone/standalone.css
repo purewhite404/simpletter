@@ -1,0 +1,160 @@
+/* The simpletter window: the folder bar on top, the notes UI under it. */
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bt-bg-2);
+}
+
+#notes-root {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Text the user wrote or may want to copy stays selectable (tokens.css turns selection off for the chrome). */
+textarea,
+input {
+  user-select: text;
+}
+
+/* ---- Folder bar (was Brighterm's .bt-plugin-tile__folderbar*) ---- */
+
+.folderbar {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  border-bottom: 1px solid var(--bt-border);
+  background: var(--bt-bg-1);
+}
+
+.folderbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--bt-space-1);
+  padding: var(--bt-space-1) var(--bt-space-2);
+  color: var(--bt-text-secondary);
+}
+
+.folderbar-row > svg {
+  flex-shrink: 0;
+}
+
+.folderbar-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px var(--bt-space-2);
+  border-radius: var(--bt-radius-sm);
+  border: 1px solid var(--bt-border);
+  background: var(--bt-bg-0);
+  color: var(--bt-text-primary);
+  font-family: inherit;
+  font-size: var(--bt-font-size-sm);
+}
+
+.folderbar-input:focus {
+  outline: none;
+  border-color: var(--bt-accent);
+}
+
+.folderbar-input[aria-invalid='true'] {
+  border-color: var(--bt-danger);
+}
+
+.folderbar-browse {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  background: transparent;
+  color: var(--bt-text-secondary);
+  cursor: pointer;
+}
+
+.folderbar-browse:hover {
+  background: var(--bt-bg-3);
+  color: var(--bt-text-primary);
+}
+
+.folderbar-error {
+  padding: 0 var(--bt-space-2) var(--bt-space-1);
+  color: var(--bt-danger);
+  font-size: var(--bt-font-size-xs);
+  word-break: break-word;
+}
+
+/* Completions, over the notes below. */
+.folderbar-list {
+  position: absolute;
+  top: 100%;
+  left: var(--bt-space-2);
+  right: var(--bt-space-2);
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 2px 0 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--bt-border-strong);
+  border-radius: var(--bt-radius-md);
+  background: var(--bt-bg-1);
+  box-shadow: var(--bt-shadow-md);
+}
+
+.folderbar-list li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bt-space-2);
+  padding: 4px var(--bt-space-2);
+  border-radius: var(--bt-radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.folderbar-list li.folderbar-option--active {
+  background: var(--bt-accent-soft);
+  color: var(--bt-accent-strong);
+}
+
+.folderbar-option-name {
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folderbar-option-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bt-text-muted);
+  font-size: var(--bt-font-size-xs);
+}
+
+/* Something failed outside a menu action (a folder that vanished, a file that can't be saved…). */
+#error-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bt-space-2);
+  padding: var(--bt-space-1) var(--bt-space-2);
+  background: var(--bt-danger-soft);
+  color: var(--bt-danger);
+  font-size: var(--bt-font-size-sm);
+  word-break: break-word;
+}
+
+#error-bar span {
+  flex: 1;
+}
+
+#error-bar button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}

@@ -1,0 +1,270 @@
+/* The screens below set display:flex, which would otherwise override the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bt-bg-2);
+  color: var(--bt-text-primary);
+  font-family: var(--bt-font-ui);
+  font-size: var(--bt-font-size-md);
+}
+
+#app,
+.screen {
+  height: 100%;
+}
+
+#picker-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  padding: 24px;
+}
+
+#picker-screen p {
+  margin: 0;
+  max-width: 32em;
+}
+
+#picker-screen .hint {
+  color: var(--bt-text-muted);
+  font-size: var(--bt-font-size-sm);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+#notes-screen {
+  display: flex;
+  height: 100%;
+  position: relative;
+}
+
+#notes-screen.sidebar-hidden #sidebar {
+  display: none;
+}
+
+/* Small tile: the list slides over the editor instead of taking a column. */
+#notes-screen.sidebar-overlay #sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  width: min(260px, 85%);
+  background: var(--bt-bg-1);
+  box-shadow: 8px 0 24px rgba(0, 0, 0, 0.35);
+}
+
+#sidebar-backdrop {
+  display: none;
+}
+
+#notes-screen.sidebar-overlay #sidebar-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+#editor-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#toggle-sidebar {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--bt-radius-sm);
+  background: transparent;
+  color: var(--bt-text-secondary);
+  cursor: pointer;
+}
+
+#toggle-sidebar:hover,
+#toggle-sidebar[aria-expanded='true'] {
+  background: var(--bt-bg-3);
+  color: var(--bt-text-primary);
+}
+
+#notes-screen.narrow #editor {
+  padding: 8px;
+}
+
+#sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--bt-border);
+  display: flex;
+  flex-direction: column;
+}
+
+#sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--bt-border);
+}
+
+#sidebar-actions {
+  display: flex;
+  gap: 6px;
+}
+
+#sidebar-actions button {
+  flex: 1;
+}
+
+#sort {
+  flex: 1.4;
+  min-width: 0;
+  background: var(--bt-bg-1);
+  border: 1px solid var(--bt-border-strong);
+  color: var(--bt-text-primary);
+  border-radius: var(--bt-radius-sm);
+  padding: 5px 4px;
+  font-size: var(--bt-font-size-sm);
+  cursor: pointer;
+}
+
+#sort option {
+  background: var(--bt-bg-1);
+  color: var(--bt-text-primary);
+}
+
+#new-note {
+  background: var(--bt-bg-1);
+  border: 1px solid var(--bt-border-strong);
+  color: var(--bt-text-primary);
+  border-radius: var(--bt-radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+#search {
+  background: var(--bt-bg-0);
+  border: 1px solid var(--bt-border);
+  color: var(--bt-text-primary);
+  border-radius: var(--bt-radius-sm);
+  padding: 6px 8px;
+}
+
+#file-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.file-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--bt-text-primary);
+  padding: 6px 8px;
+  border-radius: var(--bt-radius-sm);
+  cursor: pointer;
+  font-size: var(--bt-font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-row:hover {
+  background: var(--bt-bg-3);
+}
+
+.file-row--active {
+  background: var(--bt-accent-soft);
+  color: var(--bt-accent-strong);
+}
+
+#editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 8px;
+  min-width: 0;
+}
+
+#title {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--bt-border);
+  color: var(--bt-text-primary);
+  font-size: var(--bt-font-size-lg);
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+#content {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--bt-text-primary);
+  font-family: var(--bt-font-mono);
+  font-size: var(--bt-font-size-sm);
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+
+.ctx-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 140px;
+  padding: 4px;
+  background: var(--bt-bg-2);
+  border: 1px solid var(--bt-border);
+  border-radius: var(--bt-radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.ctx-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--bt-text-primary);
+  padding: 6px 10px;
+  border-radius: var(--bt-radius-sm);
+  cursor: pointer;
+  font-size: var(--bt-font-size-sm);
+}
+
+.ctx-menu button:hover {
+  background: var(--bt-bg-3);
+}
+
+.file-rename {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  font-size: var(--bt-font-size-sm);
+  background: var(--bt-bg-3);
+  color: var(--bt-text-primary);
+  border: 1px solid var(--bt-accent-strong);
+  border-radius: var(--bt-radius-sm);
+}

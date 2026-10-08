@@ -1,0 +1,10 @@
+{
+  "id": "notes",
+  "name": "Notes",
+  "version": "0.3.0",
+  "icon": "note",
+  "kind": "app",
+  "entry": "index.html",
+  "permissions": [{ "type": "folders" }, { "type": "storage" }],
+  "description": "指定したフォルダの .md ファイルを一覧・表示・編集する軽量メモ帳です。フォルダはタイル上部のバーにパスを入力して切り替えます。Obsidian の vault を指定しても、中の .md はそのまま読めます。"
+}

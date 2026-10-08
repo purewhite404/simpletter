@@ -1,0 +1,31 @@
+{
+  "name": "simpletter",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A small markdown notebook (Tauri). The same UI is Brighterm's Notes plugin.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "build:brighterm": "tsc && vite build --config vite.brighterm.config.ts",
+    "typecheck": "tsc && tsc -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
+    "tauri": "tauri",
+    "test:e2e": "tauri build --debug --no-bundle && playwright test"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@tauri-apps/cli": "^2",
+    "@types/node": "^26.6.4",
+    "happy-dom": "^20.14.5",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^5.0.3"
+  }
+}
