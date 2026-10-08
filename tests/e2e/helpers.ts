@@ -51,11 +51,14 @@ export interface App {
   close(): Promise<void>
 }
 
-/** Starts the app; `dataDir` = reuse a profile (a restart), else a fresh one removed on close. */
-export async function launch(dataDir?: string): Promise<App> {
+/**
+ * Starts the app; `dataDir` = reuse a profile (a restart), else a fresh one removed on close.
+ * `args` = its command line (a file path = what Explorer passes for a double-clicked file).
+ */
+export async function launch(dataDir?: string, args: string[] = []): Promise<App> {
   const profile = dataDir ?? tempDir('simpletter-e2e-profile-')
   const port = await freePort()
-  const proc = spawn(EXE, [], {
+  const proc = spawn(EXE, args, {
     env: { ...process.env, SIMPLETTER_TEST_DATA_DIR: profile, SIMPLETTER_TEST_CDP_PORT: String(port) },
     stdio: 'ignore'
   })

@@ -4,10 +4,12 @@
 
 mod files;
 mod folder_input;
+mod open_file;
 
 use serde::Serialize;
-use std::path::PathBuf;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 
 /// What the UI keeps for a folder (Brighterm's `{ id, label }` handle; here the id is the path).
@@ -26,6 +28,34 @@ fn home(app: &AppHandle) -> PathBuf {
 async fn open_folder(app: AppHandle, input: String) -> Result<FolderHandle, String> {
     let path = folder_input::open_folder(&input, &home(&app))?;
     Ok(FolderHandle { label: folder_input::label(&path), id: path.to_string_lossy().into_owned() })
+}
+
+/// A file to open from outside: its folder (as the folder bar would give it) and its name there.
+#[derive(Serialize)]
+struct OpenedFile {
+    folder: FolderHandle,
+    name: String,
+}
+
+/// The file this process was started with (a double-click in Explorer), until the UI takes it.
+struct InitialFile(Mutex<Option<PathBuf>>);
+
+/// The file given at launch, once (null afterwards, or if there was none).
+#[tauri::command]
+fn initial_file(state: State<'_, InitialFile>) -> Option<String> {
+    let path = state.0.lock().ok()?.take()?;
+    Some(path.to_string_lossy().into_owned())
+}
+
+/// A file's absolute path → its folder handle + name, if it's a file whose folder we can read.
+#[tauri::command]
+async fn open_path(app: AppHandle, path: String) -> Result<OpenedFile, String> {
+    let (dir, name) = open_file::split(Path::new(&path))?;
+    let dir = folder_input::open_folder(&dir.to_string_lossy(), &home(&app))?;
+    Ok(OpenedFile {
+        folder: FolderHandle { label: folder_input::label(&dir), id: dir.to_string_lossy().into_owned() },
+        name,
+    })
 }
 
 /// Subfolders completing what's typed in the folder bar.
@@ -103,14 +133,39 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Another launch (a second double-click in Explorer) while this one runs: its file goes to
+/// this window (the UI calls `open_path` with it) and the window comes to the front.
+fn on_second_launch(app: &AppHandle, args: Vec<String>, cwd: String) {
+    if let Some(path) = open_file::from_args(args, Path::new(&cwd)) {
+        let _ = app.emit("open-file", path.to_string_lossy().into_owned());
+    }
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let initial = open_file::from_args(std::env::args_os(), &cwd);
+
+    let mut builder = tauri::Builder::default();
+    // One window for every double-clicked file. Not in e2e tests: their exe would hand its
+    // arguments to the user's running simpletter and quit (the plugin goes by the app's identifier).
+    if test_mode().is_none() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(on_second_launch));
+    }
+    builder
+        .manage(InitialFile(Mutex::new(initial)))
         .setup(|app| Ok(create_main_window(app)?))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![
             open_folder,
+            initial_file,
+            open_path,
             suggest_folders,
             list_files,
             read_file,

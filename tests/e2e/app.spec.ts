@@ -34,6 +34,42 @@ test('a folder typed into the bar lists its notes; typing saves to disk', async 
   }
 })
 
+test('a file given on the command line (a double-click in Explorer) opens in its folder', async () => {
+  const profile = tempDir('simpletter-e2e-profile-')
+  const other = tempDir('simpletter-other-')
+  const dir = tempDir('simpletter-open-')
+  writeFileSync(join(other, 'elsewhere.md'), 'elsewhere')
+  writeFileSync(join(dir, 'a.md'), '# A')
+  writeFileSync(join(dir, '日本語 メモ.md'), 'opened from Explorer')
+  writeFileSync(join(dir, 'log.txt'), 'a text file')
+  let app = await launch(profile)
+  try {
+    await typeFolder(app.page, other) // a folder remembered from before
+    await app.close()
+
+    app = await launch(profile, [join(dir, '日本語 メモ.md')])
+    await expect(app.page.locator('#content')).toHaveValue('opened from Explorer')
+    await expect(app.page.locator('#title')).toHaveValue('日本語 メモ')
+    await expect(app.page.getByRole('combobox', { name: 'フォルダのパス' })).toHaveValue(dir)
+    await expect(rows(app.page)).toHaveText(['a', '日本語 メモ'])
+    await expect(app.page.locator('.file-row--active')).toHaveText('日本語 メモ')
+    await app.close()
+
+    // Not a note: opened and listed alongside the notes (like Brighterm's "Open in Notes").
+    app = await launch(profile, [join(dir, 'log.txt')])
+    await expect(app.page.locator('#content')).toHaveValue('a text file')
+    await expect(rows(app.page)).toHaveText(['a', 'log.txt', '日本語 メモ'])
+    await app.close()
+
+    // A file that's gone: the error bar says so, the remembered folder stays.
+    app = await launch(profile, [join(dir, 'missing.md')])
+    await expect(app.page.getByRole('alert')).toContainText(`ファイルが見つかりません: ${join(dir, 'missing.md')}`)
+    await expect(app.page.getByRole('combobox', { name: 'フォルダのパス' })).toHaveValue(dir)
+  } finally {
+    await app.close().finally(() => Promise.all([removeDir(profile), removeDir(other), removeDir(dir)]))
+  }
+})
+
 test('the bar explains a wrong path and completes subfolders from the disk', async () => {
   const dir = tempDir('simpletter-bar-')
   mkdirSync(join(dir, 'Notebooks'))

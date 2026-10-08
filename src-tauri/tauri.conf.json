@@ -20,6 +20,15 @@
     "targets": [
       "nsis"
     ],
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown"],
+        "name": "simpletter.markdown",
+        "description": "Markdown",
+        "role": "Editor",
+        "mimeType": "text/markdown"
+      }
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

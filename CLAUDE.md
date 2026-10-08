@@ -45,7 +45,14 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   plugin sources: no eval/require/process.).
 - **`src-tauri/src/`** — `lib.rs` (commands, window creation), `folder_input.rs` (port of Brighterm's
   `folderInput.ts` + `folderSuggest.ts`: quotes, `~`, bare drive, UNC, Japanese errors, completions),
-  `files.rs` (list/read/write/delete; a name must be one plain component — no separators, `..`, drive).
+  `files.rs` (list/read/write/delete; a name must be one plain component — no separators, `..`, drive),
+  `open_file.rs` (launch args → the file to open; path → folder + name).
+- **Opening a file from outside** (`.md` double-click): `tauri.conf.json` `bundle.fileAssociations`
+  (md, markdown; ProgID `simpletter.markdown` — NSIS uses `name` as the class key, so not a generic name)
+  → Explorer runs `simpletter.exe "<path>"`. `run()` keeps argv's file in `InitialFile`; the UI pulls it
+  once with `initial_file` (pull, so no race with the listener). A later launch goes through
+  `tauri-plugin-single-instance` → `open-file` event (the path) + window to the front. Either way the UI
+  calls `open_path` (checked folder handle + name) and hands it to the core's existing `host.onOpenFile`.
   Commands are `async` (off the main thread). Capabilities: `core:default` + dialog open/message/confirm.
 
 ## Gotchas already paid for
@@ -63,6 +70,12 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - **Quit with `taskkill` (no /F)** = WM_CLOSE: localStorage is flushed (a hard kill can lose it).
   WebView2 keeps writing the profile for seconds after exit — `removeDir` retries up to 15 s.
 - **Playwright names**: the new-note button's accessible name is「＋ 新規」(its title is「新規メモ」).
+- **Single instance is off in e2e test mode**: it keys on the app identifier, so a test exe would hand
+  its args to the user's running simpletter and quit. Not off in plain debug builds: `npm run tauri dev`
+  while an installed simpletter runs just focuses the installed one and exits — close it first.
+  The second-launch path (event + focus) has no e2e for that reason; the e2e covers argv at startup.
+- File associations only exist in the installed (NSIS) build, and Windows 10/11 won't let an installer
+  become the default app if the user already chose one for `.md` (README explains「プログラムから開く」).
 - The window is created in `lib.rs` (`app.windows` is empty in `tauri.conf.json`) so tests can set
   profile/args; the capability still targets the label `main`.
 
@@ -70,7 +83,9 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 
 Ported 1:1 from Brighterm's Notes 0.3.0 (user's choice: no new features yet). One deliberate fix: the
 title field's rename makes the name safe (`\/:*?"<>|` → `_`) like the menu's rename already did.
-Tests: Rust 11, Vitest 29, e2e 4; Brighterm's own `notes.spec.ts` (10) passes with `dist-brighterm/`.
+Tests: Rust 14, Vitest 32, e2e 5; Brighterm's own `notes.spec.ts` (10) passes with `dist-brighterm/`.
 
-Next candidates (from the original plan, not started): `.md` file association + single instance
-(open a file by double-click), markdown preview, app icon (still Tauri's default icons).
+Done (2026-10-08): `.md` file association + single instance (core untouched — it already had `onOpenFile`).
+Not yet checked by hand: the installed build's double-click, second launch → same window.
+
+Next candidates (not started): markdown preview, app icon (still Tauri's default icons).

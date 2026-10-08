@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
 import type { FileEntry, FolderHandle, NotesHost } from '../core/host'
 import type { FolderBar } from './folderBar'
@@ -48,8 +49,15 @@ export function createTauriHost(): { host: NotesHost; attachFolderBar: (bar: Fol
       deleteFile: (handle, name) => invoke('delete_file', { dir: handle.id, name }),
       copyPath: (handle, name) => invoke('copy_path', { dir: handle.id, name })
     },
-    // Nothing opens files from outside yet (file associations would).
-    onOpenFile: () => () => {}
+    // A double-clicked .md (file association): the one this app was started with, then the ones
+    // later launches hand over (single instance, src-tauri/src/lib.rs). The path is checked and
+    // split into folder + name on the Rust side; a failure surfaces as an unhandled rejection (error bar).
+    onOpenFile(cb) {
+      const open = async (path: string) => cb(await invoke<OpenedFile>('open_path', { path }))
+      const unlisten = listen<string>('open-file', (e) => void open(e.payload))
+      void invoke<string | null>('initial_file').then((path) => (path ? open(path) : undefined))
+      return () => void unlisten.then((stop) => stop())
+    }
   }
 
   return {
@@ -59,6 +67,11 @@ export function createTauriHost(): { host: NotesHost; attachFolderBar: (bar: Fol
     },
     changeFolder
   }
+}
+
+interface OpenedFile {
+  folder: FolderHandle
+  name: string
 }
 
 /** Completions for the folder bar. */
