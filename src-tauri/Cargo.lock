@@ -3289,7 +3289,6 @@ name = "simpletter"
 version = "0.2.1"
 dependencies = [
  "serde",
- "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-clipboard-manager",
