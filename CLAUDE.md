@@ -95,6 +95,13 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   wrapping: scrolls sideways; Tab = the delimiter, `insertDelimiter`), anything else → plain mono text. Opening a
   file = `view.setState` (fresh undo history, no change event → no save). Import `markdownLanguage`, never
   `markdown()`: that one drags lang-html/js/css into the bundle.
+  **Search (Ctrl+F, 2026-10-09):** every kind has `@codemirror/search` (`search({ top: true })` + `searchKeymap`,
+  phrases in Japanese = `PHRASES`; replace included, user's choice). The WebView's own find bar only sees the DOM =
+  the lines CM has drawn (and not text inside widgets) — that was the bug. `notes.ts` has a document `keydown`:
+  Ctrl+F not taken by CM (focus outside the editor) → the file filter `#search` (sidebar shown first, user's choice);
+  F3 / Ctrl+G outside → `preventDefault` only. Never the WebView's find bar. While the panel is open
+  (`searchPanelOpen(state)`) live preview and CSV count as focused, so the current match (in a table, a hidden URL,
+  behind a `,` widget) shows as text even though the focus is in the panel's input.
   `lists.ts` = list keys (tested in `lists.test.ts`, cursor `‸`): Tab / Shift+Tab move an item **with its
   sub-items** `LIST_INDENT` (4) spaces (also the markdown `indentUnit`), then `renumber` the ordered lists in
   the new state's tree (one transaction: `moved.compose(numbers)`): the list the item is in, its ancestors,
@@ -337,6 +344,10 @@ Done (2026-10-09): installer without the finish page (no "run simpletter" / desk
 any shortcut (see Gotchas: NSIS template). Pages: welcome → folder → progress (closes itself; uninstall too). makensis: 0 warnings;
 13 `APP_ASSOCIATE` kept. Not yet checked by hand: the pages, auto-close (and a failure staying open), no shortcuts, 0.3.0's shortcuts removed on install
 over it, `.md` double-click, uninstall. User-visible → part of the next (minor) release.
+
+Done (2026-10-09): Ctrl+F searches the whole note (user report: text off screen wasn't found) — CodeMirror's
+search / replace panel, see Architecture. Tests: Vitest 105 (search 3), e2e 15. Checked by hand by the user
+(2026-10-09): OK (the WebView's find bar never shows — CDP can't see it). User-visible (replace is new) → part of the next (minor) release.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).

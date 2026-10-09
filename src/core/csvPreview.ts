@@ -14,6 +14,7 @@
 // Files may have tens of thousands of lines: the column widths are read from the
 // whole file once (StateField), widened as lines are edited and read again a moment
 // after typing stops; decorations are only made for the lines in view (ViewPlugin).
+// While the search panel is open, the cursor's lines show their marks as if focused.
 
 import {
   Facet,
@@ -24,6 +25,7 @@ import {
   type Range,
   type StateCommand
 } from '@codemirror/state'
+import { searchPanelOpen } from '@codemirror/search'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { fieldWidth, fitLine, parseLine, quoteMarks, scanDoc, type CsvModel, type Delimiter } from './csv'
 
@@ -167,6 +169,9 @@ export function csvDecorations(
   return Decoration.set(out, true)
 }
 
+/** Whether the cursor's marks show: the editor has the focus, or the search panel is open. */
+const focused = (view: EditorView): boolean => view.hasFocus || searchPanelOpen(view.state)
+
 const tableView = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
@@ -174,7 +179,7 @@ const tableView = ViewPlugin.fromClass(
     /** Only mapped during a composition: to be rebuilt. */
     stale = false
     constructor(readonly view: EditorView) {
-      this.decorations = csvDecorations(view.state, view.visibleRanges, view.hasFocus)
+      this.decorations = csvDecorations(view.state, view.visibleRanges, focused(view))
     }
     update(u: ViewUpdate): void {
       if (u.docChanged) this.scheduleRescan()
@@ -187,9 +192,18 @@ const tableView = ViewPlugin.fromClass(
         return
       }
       const modelChanged = u.startState.field(modelField) !== u.state.field(modelField)
-      if (this.stale || u.docChanged || u.selectionSet || u.viewportChanged || u.focusChanged || modelChanged) {
+      const panelChanged = searchPanelOpen(u.state) !== searchPanelOpen(u.startState)
+      if (
+        this.stale ||
+        u.docChanged ||
+        u.selectionSet ||
+        u.viewportChanged ||
+        u.focusChanged ||
+        modelChanged ||
+        panelChanged
+      ) {
         this.stale = false
-        this.decorations = csvDecorations(u.state, u.view.visibleRanges, u.view.hasFocus)
+        this.decorations = csvDecorations(u.state, u.view.visibleRanges, focused(u.view))
       }
     }
     /** A composition ended: redraw (CodeMirror may not send an update of its own). */

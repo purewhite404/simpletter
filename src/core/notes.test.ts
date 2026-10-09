@@ -549,6 +549,83 @@ describe('editor', () => {
   })
 })
 
+describe('search (Ctrl+F)', () => {
+  const ctrlF = (target: EventTarget) => {
+    const e = new KeyboardEvent('keydown', { key: 'f', ctrlKey: true, bubbles: true, cancelable: true })
+    target.dispatchEvent(e)
+    return e
+  }
+  const panel = () => $('#content .cm-search')
+  const field = (name: string) => $<HTMLInputElement>(`#content .cm-search input[name=${name}]`)
+  function query(name: 'search' | 'replace', value: string): void {
+    field(name).value = value
+    field(name).dispatchEvent(new Event('change'))
+  }
+  const button = (name: string) => $<HTMLButtonElement>(`#content .cm-search button[name=${name}]`)
+
+  it('in the editor: the whole note, also lines far off screen; replace all is saved', async () => {
+    const text = 'top\n' + 'filler line\n'.repeat(5000) + 'needle at the end\n'
+    const dir: Folder = { 'long.md': { content: text, modifiedAt: 1 } }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    row('long.md').click()
+    await vi.waitFor(() => expect(content()).toBe(text))
+
+    const e = ctrlF(editorView().contentDOM)
+    expect(e.defaultPrevented).toBe(true) // no WebView find bar
+    expect(panel()).not.toBeNull()
+    expect(field('search').placeholder).toBe('検索')
+    expect(button('replaceAll').textContent).toBe('すべて置換')
+    expect(document.activeElement).not.toBe($('#search')) // the file filter stays out of it
+
+    query('search', 'needle')
+    button('next').click()
+    const sel = editorView().state.selection.main
+    expect(text.slice(sel.from, sel.to)).toBe('needle')
+    expect(sel.from).toBe(text.indexOf('needle'))
+
+    query('search', 'filler')
+    query('replace', 'f')
+    button('replaceAll').click()
+    const replaced = 'top\n' + 'f line\n'.repeat(5000) + 'needle at the end\n'
+    expect(content()).toBe(replaced)
+    await vi.waitFor(() => expect(dir['long.md'].content).toBe(replaced), { timeout: 2000 })
+  })
+
+  it('a match in a table: the table shows as its text while the panel is open', async () => {
+    const text = '# 表\n\n| 品物 | 数 |\n|--|--|\n| りんご | 3 |\n\nend\n'
+    const dir: Folder = { 't.md': { content: text, modifiedAt: 1 } }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    row('t.md').click()
+    await vi.waitFor(() => expect($('#content .cm-lp-table')).not.toBeNull())
+
+    ctrlF(editorView().contentDOM)
+    query('search', 'りんご')
+    button('next').click()
+    expect($('#content .cm-lp-table')).toBeNull()
+    expect($('#content .cm-lp-table-src')).not.toBeNull()
+  })
+
+  it('anywhere else: the file filter, with the file list shown; F3 does nothing', async () => {
+    const dir: Folder = { 'a.md': { content: 'x', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    $<HTMLButtonElement>('#toggle-sidebar').click() // folded away
+    expect($('#notes-screen').classList.contains('sidebar-hidden')).toBe(true)
+
+    const e = ctrlF(row('a.md'))
+    expect(e.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe($('#search'))
+    expect($('#notes-screen').classList.contains('sidebar-hidden')).toBe(false)
+    expect(panel()).toBeNull()
+
+    const f3 = new KeyboardEvent('keydown', { key: 'F3', bubbles: true, cancelable: true })
+    document.body.dispatchEvent(f3)
+    expect(f3.defaultPrevented).toBe(true)
+  })
+})
+
 describe('dialogs', () => {
   it("delete waits for an async confirm (Tauri's dialog plugin) and keeps the note on cancel", async () => {
     let answer = false

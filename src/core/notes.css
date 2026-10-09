@@ -266,6 +266,73 @@ body {
   color: var(--bt-text-muted);
 }
 
+/* Search / replace panel (Ctrl+F, @codemirror/search) and its matches. */
+#content .cm-panels {
+  background: var(--bt-bg-1);
+  color: var(--bt-text-primary);
+  font-family: var(--bt-font-ui);
+  font-size: var(--bt-font-size-sm);
+}
+
+#content .cm-panels-top {
+  border-bottom: 1px solid var(--bt-border);
+}
+
+#content .cm-panel.cm-search {
+  padding: 4px 28px 4px 6px; /* right: room for the × */
+}
+
+#content .cm-panels .cm-textfield {
+  background: var(--bt-bg-0);
+  border: 1px solid var(--bt-border);
+  border-radius: var(--bt-radius-sm);
+  color: var(--bt-text-primary);
+  font: inherit;
+  padding: 3px 6px;
+}
+
+#content .cm-panels .cm-textfield:focus {
+  border-color: var(--bt-accent);
+  outline: none;
+}
+
+#content .cm-panels .cm-button {
+  background: var(--bt-bg-1);
+  background-image: none;
+  border: 1px solid var(--bt-border-strong);
+  border-radius: var(--bt-radius-sm);
+  color: var(--bt-text-primary);
+  font: inherit;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+#content .cm-panels .cm-button:hover {
+  background: var(--bt-bg-3);
+}
+
+#content .cm-panels label {
+  color: var(--bt-text-secondary);
+  font-size: inherit;
+}
+
+#content .cm-panel.cm-search [name='close'] {
+  top: 4px;
+  right: 8px;
+  color: var(--bt-text-secondary);
+  font-size: var(--bt-font-size-md);
+  cursor: pointer;
+}
+
+#content .cm-searchMatch {
+  background: color-mix(in srgb, var(--bt-warning) 30%, transparent);
+  border-radius: 2px;
+}
+
+#content .cm-searchMatch-selected {
+  background: color-mix(in srgb, var(--bt-warning) 65%, transparent);
+}
+
 /* Files other than notes: plain monospace text, as before. */
 #content .cm-plain .cm-scroller {
   font-family: var(--bt-font-mono);

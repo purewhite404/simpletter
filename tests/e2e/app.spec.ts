@@ -325,6 +325,45 @@ test('live preview: tables are drawn; a click edits the source; arrow keys step 
   }
 })
 
+test('Ctrl+F: the whole note, also lines not drawn yet; replace all saves; elsewhere the file filter', async () => {
+  const dir = tempDir('simpletter-search-')
+  const file = join(dir, 'long.md')
+  const source = 'top\n\n' + 'filler line\n'.repeat(3000) + '| 品物 | 数 |\n|--|--|\n| needle | 3 |\n\nend\n'
+  writeFileSync(file, source)
+  const app = await launch()
+  try {
+    const page = app.page
+    const match = page.locator('#content .cm-searchMatch-selected')
+    await typeFolder(page, dir)
+    await page.locator('#content .cm-line', { hasText: 'top' }).click()
+    // Far below: not drawn — what the WebView's own find bar couldn't see.
+    await expect(page.locator('#content', { hasText: 'needle' })).toHaveCount(0)
+
+    await page.keyboard.press('Control+f')
+    const find = page.locator('#content .cm-search input[name=search]')
+    await expect(find).toBeFocused()
+    await expect(find).toHaveAttribute('placeholder', '検索')
+    await page.keyboard.type('needle')
+    await page.keyboard.press('Enter')
+    await expect(match).toHaveText('needle')
+    await expect(match).toBeInViewport()
+    await expect(page.locator('#content .cm-lp-table-src')).not.toHaveCount(0) // its table as text
+
+    await find.fill('filler')
+    await page.locator('#content .cm-search input[name=replace]').fill('f')
+    await page.locator('#content .cm-search button[name=replaceAll]').click()
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe(source.replaceAll('filler', 'f'))
+
+    // Not in the editor: Ctrl+F goes to the file list's filter.
+    await row(page, 'long.md').focus()
+    await page.keyboard.press('Control+f')
+    await expect(page.locator('#search')).toBeFocused()
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await app.close().finally(() => removeDir(dir))
+  }
+})
+
 test('lists: Tab goes 4 spaces in and numbers from 1; Enter twice comes back and counts on', async () => {
   const dir = tempDir('simpletter-lists-')
   const file = join(dir, 'l.md')

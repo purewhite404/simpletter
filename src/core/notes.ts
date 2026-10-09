@@ -84,6 +84,29 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   })
   applySidebar()
 
+  // ---- Ctrl+F: in the editor, CodeMirror's search panel (editor.ts) takes it. Anywhere else it goes to
+  // the file list's filter. The WebView's own find bar never shows: it only sees the lines drawn on screen.
+  document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented || e.altKey || !notesScreen.isConnected) return // (a UI no longer shown: tests)
+    const mod = e.ctrlKey || e.metaKey
+    const key = e.key.toLowerCase()
+    if (mod && key === 'f') {
+      e.preventDefault()
+      focusFileFilter()
+    } else if (e.key === 'F3' || (mod && key === 'g')) {
+      e.preventDefault() // the WebView's find next / previous
+    }
+  })
+
+  function focusFileFilter(): void {
+    if (notesScreen.hidden) return
+    if (NARROW.matches) sidebarOpen = true
+    else sidebarCollapsed = false
+    applySidebar()
+    searchInput.focus()
+    searchInput.select()
+  }
+
   /** After picking a note on a small window, get the list out of the way. */
   function closeOverlaySidebar(): void {
     if (!sidebarOpen) return

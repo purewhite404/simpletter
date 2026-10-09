@@ -1,7 +1,8 @@
 // Obsidian-style live preview for markdown notes: the text is shown formatted, and
 // the markup (#, **, `, [](url), > …) only appears where the cursor is — block
 // marks on the cursor's line, inline marks while the cursor touches that element.
-// With the editor unfocused, everything is shown formatted.
+// With the editor unfocused, everything is shown formatted. The search panel counts as
+// focus while it's open: its current match (in a table, a link's URL…) shows as text.
 //
 // The decorations are a pure function of the state (doc + syntax tree + selection +
 // focus), kept in a StateField: testable with an EditorState alone, no DOM needed.
@@ -9,6 +10,7 @@
 // <table> widget, which a ViewPlugin couldn't do.)
 
 import { syntaxTree } from '@codemirror/language'
+import { searchPanelOpen } from '@codemirror/search'
 import {
   EditorSelection,
   EditorState,
@@ -32,6 +34,9 @@ const focusField = StateField.define<boolean>({
     return focused
   }
 })
+
+/** Whether the cursor's marks show: the editor has the focus, or the search panel is open. */
+const isFocused = (state: EditorState): boolean => (state.field(focusField, false) ?? false) || searchPanelOpen(state)
 
 class BulletWidget extends WidgetType {
   eq(): boolean {
@@ -319,7 +324,7 @@ const INLINE_MARK: Record<string, string> = {
 /** All the live-preview decorations for `state` (exported for tests). */
 export function previewDecorations(state: EditorState): DecorationSet {
   const doc = state.doc
-  const focused = state.field(focusField, false) ?? false
+  const focused = isFocused(state)
   const ranges = focused ? state.selection.ranges : []
   /** The cursor/selection touches [from, to]. */
   const touches = (from: number, to: number) => ranges.some((r) => r.from <= to && r.to >= from)
@@ -484,7 +489,7 @@ export function previewDecorations(state: EditorState): DecorationSet {
 const previewField = StateField.define<DecorationSet>({
   create: (state) => previewDecorations(state),
   update(decos, tr) {
-    const focusChanged = tr.effects.some((e) => e.is(setFocused))
+    const focusChanged = isFocused(tr.state) !== isFocused(tr.startState)
     if (tr.docChanged || tr.selection || focusChanged || syntaxTree(tr.state) !== syntaxTree(tr.startState)) {
       return previewDecorations(tr.state)
     }

@@ -1,10 +1,13 @@
 // The note's text editor (CodeMirror 6). Markdown notes get the live preview
 // (livePreview.ts) and list continuation on Enter; CSV / TSV files show as a table
 // (csvPreview.ts); any other file (.txt, .log, .yaml, …) is plain monospace text.
+// Every kind has CodeMirror's search / replace panel (Ctrl+F): the WebView's own find only sees
+// the lines drawn on screen.
 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { indentUnit, LanguageSupport } from '@codemirror/language'
 import { deleteMarkupBackward, markdownLanguage } from '@codemirror/lang-markdown'
+import { search, searchKeymap } from '@codemirror/search'
 import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap, placeholder } from '@codemirror/view'
 import { csvPreview, insertDelimiter } from './csvPreview'
@@ -22,11 +25,34 @@ export interface NoteEditor {
 const PLACEHOLDER = 'ここに書く…（# 見出し、**太字**、- 箇条書き、- [ ] チェックボックス）'
 
 /** The keys every kind of file has (after its own ones). */
-const BASE_KEYS = [...defaultKeymap, ...historyKeymap]
+const BASE_KEYS = [...defaultKeymap, ...historyKeymap, ...searchKeymap]
+
+/** The search panel (and go-to-line dialog) in Japanese. */
+const PHRASES = EditorState.phrases.of({
+  Find: '検索',
+  Replace: '置換',
+  next: '次へ',
+  previous: '前へ',
+  all: 'すべて選択',
+  'match case': '大文字と小文字を区別',
+  regexp: '正規表現',
+  'by word': '単語単位',
+  replace: '置換',
+  'replace all': 'すべて置換',
+  close: '閉じる',
+  'current match': '現在の一致',
+  'on line': '行',
+  'replaced $ matches': '$ 件置換しました',
+  'replaced match on line $': '$ 行目を置換しました',
+  'Go to line': '行へ移動',
+  go: '移動'
+})
 
 function extensions(kind: FileKind, onChange: () => void): Extension[] {
   const base: Extension[] = [
     history(),
+    search({ top: true }),
+    PHRASES,
     EditorView.contentAttributes.of({ 'aria-label': '本文', spellcheck: 'false' }),
     EditorView.updateListener.of((u) => {
       if (u.docChanged) onChange()
