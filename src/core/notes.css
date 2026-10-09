@@ -272,6 +272,46 @@ body {
   font-size: var(--bt-font-size-sm);
 }
 
+/* CSV / TSV: each line a row of fixed-width cells (csvPreview.ts); a wide table scrolls sideways. */
+#content .cm-csv .cm-scroller {
+  font-family: var(--bt-font-mono);
+  font-size: var(--bt-font-size-sm);
+  line-height: 1.5;
+}
+
+#content .cm-csv .cm-content {
+  padding-bottom: 40vh;
+}
+
+#content .cm-csv-row {
+  padding: 0;
+  border-bottom: 1px solid var(--bt-border);
+}
+
+#content .cm-csv-active {
+  background: var(--bt-bg-1);
+}
+
+.cm-csv-cell {
+  display: inline-block;
+  box-sizing: content-box;
+  vertical-align: top;
+  padding: 1px 8px;
+  border-right: 1px solid var(--bt-border);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cm-csv-mark {
+  color: var(--bt-text-muted);
+}
+
+/* A delimiter (a widget, csvPreview.ts): 1 ch, shown or not. */
+.cm-csv-sep {
+  display: inline-block;
+  width: 1ch;
+}
+
 /* Markdown notes: live preview (livePreview.ts). */
 #content .cm-markdown .cm-scroller {
   font-family: var(--bt-font-ui);

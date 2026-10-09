@@ -274,6 +274,37 @@ describe('editor', () => {
     expect(dir['t.md'].modifiedAt).toBe(1) // not an edit
   })
 
+  it('CSV / TSV files are listed and shown as a table; edits are saved as the raw text', async () => {
+    const csv = 'name,qty\n"apple, red",3\n'
+    const dir: Folder = {
+      'a.md': { content: '', modifiedAt: 1 },
+      'data.csv': { content: csv, modifiedAt: 1 },
+      't.TSV': { content: 'x\ty', modifiedAt: 1 },
+      'x.txt': { content: '', modifiedAt: 1 }
+    }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    expect(rows()).toEqual(['a', 'data.csv', 't.TSV'])
+
+    row('data.csv').click()
+    await vi.waitFor(() => expect(content()).toBe(csv))
+    expect($('#content .cm-editor').classList.contains('cm-csv')).toBe(true)
+    expect($<HTMLInputElement>('#title').value).toBe('data.csv')
+    const cellTexts = () => [...document.querySelectorAll('#content .cm-csv-cell')].map((c) => c.textContent)
+    expect(cellTexts()).toEqual(['name', 'qty', 'apple, red', '3']) // the quotes and delimiters are hidden
+    expect($<HTMLElement>('#content .cm-csv-cell').style.width).toBe('calc(12ch + 1px)')
+    await new Promise((r) => setTimeout(r, 600))
+    expect(dir['data.csv'].modifiedAt).toBe(1) // opening is not an edit
+
+    const view = editorView()
+    view.dispatch({ changes: { from: csv.indexOf('3'), to: csv.indexOf('3') + 1, insert: '12' }, userEvent: 'input.type' })
+    await vi.waitFor(() => expect(dir['data.csv'].content).toBe('name,qty\n"apple, red",12\n'), { timeout: 2000 })
+
+    row('t.TSV').click()
+    await vi.waitFor(() => expect(content()).toBe('x\ty'))
+    expect(cellTexts()).toEqual(['x', 'y']) // the tab: a 1 ch widget
+  })
+
   it('clicking a checkbox ticks the task in the file', async () => {
     const dir: Folder = { 'todo.md': { content: '- [ ] milk\n- [x] eggs', modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })

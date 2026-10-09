@@ -13,6 +13,17 @@ export const isSortOrder = (value: unknown): value is SortOrder => SORT_ORDERS.i
 
 export const isMarkdown = (name: string): boolean => name.toLowerCase().endsWith('.md')
 
+/** How a file is shown: a note (live preview), a table (CSV / TSV) or plain text. */
+export type FileKind = 'markdown' | 'csv' | 'tsv' | 'plain'
+
+export function fileKind(name: string): FileKind {
+  const ext = /\.([^.]*)$/.exec(name.toLowerCase())?.[1]
+  return ext === 'md' ? 'markdown' : ext === 'csv' ? 'csv' : ext === 'tsv' ? 'tsv' : 'plain'
+}
+
+/** Notes and tables are listed whenever they're in the folder; other files only once opened from outside. */
+export const isListed = (name: string): boolean => fileKind(name) !== 'plain'
+
 /** Notes show without ".md"; other files keep their full name so the extension stays visible. */
 export const displayName = (name: string): string => (isMarkdown(name) ? name.replace(/\.md$/i, '') : name)
 

@@ -192,6 +192,117 @@ test('lists: Tab goes 4 spaces in and numbers from 1; Enter twice comes back and
   }
 })
 
+test('CSV / TSV: listed and drawn as lined-up cells; a click types into the cell; Tab = a new cell', async () => {
+  const dir = tempDir('simpletter-csv-')
+  const file = join(dir, 'data.csv')
+  // "bananabanana!" is the widest of its column (the first: no delimiter before it): it fills the cell exactly.
+  const source = 'name,qty\n"りんご, 赤",3\nbananabanana!,12\n'
+  writeFileSync(file, source)
+  writeFileSync(join(dir, 'a.md'), 'note')
+  writeFileSync(join(dir, 't.tsv'), 'x\ty')
+  const app = await launch()
+  try {
+    const page = app.page
+    await typeFolder(page, dir)
+    await expect(rows(page)).toHaveText(['a', 'data.csv', 't.tsv'])
+    await row(page, 'data.csv').click()
+    await expect(page.locator('#content .cm-csv')).toBeVisible()
+    const cells = page.locator('#content .cm-csv-cell')
+    await expect(cells).toHaveCount(6)
+    /** Where each row's second column starts (they line up) and how wide the first column is. */
+    const layout = async () => {
+      const boxes = await Promise.all([0, 1, 2, 3, 4, 5].map(async (i) => (await cells.nth(i).boundingBox())!))
+      return { secondX: new Set([1, 3, 5].map((i) => Math.round(boxes[i].x))).size, firstW: new Set([0, 2, 4].map((i) => Math.round(boxes[i].width))).size }
+    }
+    expect(await layout()).toEqual({ secondX: 1, firstW: 1 })
+    const heights = await page.locator('#content .cm-csv-row').evaluateAll((rs) => rs.slice(0, 3).map((r) => r.getBoundingClientRect().height))
+    expect(Math.max(...heights)).toBeLessThan(Math.min(...heights) * 1.5) // nothing wrapped onto a 2nd line
+    await expect(cells.nth(2)).toHaveText('りんご, 赤') // the quotes are hidden
+    await expect(cells.nth(3).locator('.cm-csv-sep')).toHaveText('') // the delimiter: there (its 1 ch), not seen
+
+    // A click right of "3": the cursor goes after it; that row shows its quotes, the columns stay put.
+    const qty = (await cells.nth(3).boundingBox())!
+    await page.mouse.click(qty.x + qty.width - 4, qty.y + qty.height / 2)
+    await page.keyboard.type('0')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe(source.replace(',3\n', ',30\n'))
+    await expect(page.locator('#content .cm-csv-active')).toHaveCount(1)
+    await expect(cells.nth(2)).toHaveText('"りんご, 赤"')
+    await expect(cells.nth(3)).toHaveText(',30') // a cell = the delimiter before it + its field
+    expect(await layout()).toEqual({ secondX: 1, firstW: 1 })
+
+    // ↓: the next row, the same place in the same column (after "30" → after "12").
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.type('!')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toContain('\nbananabanana!,12!\n')
+
+    // Tab in CSV: a comma — a new cell.
+    await page.keyboard.press('Tab')
+    await page.keyboard.type('x')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toContain('\nbananabanana!,12!,x\n')
+    await expect(editor(page)).toBeFocused()
+
+    // TSV: Tab types a tab — a new cell; the focus stays in the editor.
+    await row(page, 't.tsv').click()
+    await expect(cells).toHaveText(['x', 'y'])
+    await cells.nth(1).click()
+    await page.keyboard.press('End')
+    await page.keyboard.press('Tab')
+    await page.keyboard.type('z')
+    await expect.poll(() => readFileSync(join(dir, 't.tsv'), 'utf-8')).toBe('x\ty\tz')
+    await expect(editor(page)).toBeFocused()
+    await expect(cells).toHaveCount(3)
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await app.close().finally(() => removeDir(dir))
+  }
+})
+
+test('CSV: Japanese typed with the IME goes into the cell at the cursor; the row stays put while converting', async () => {
+  // Was: text composed right after a "," landed in the ","'s span — the narrow cell before — wrapping a
+  // character a line, and the IME showed its own window. (CDP's composition stands in for the IME.)
+  const dir = tempDir('simpletter-csv-ime-')
+  const file = join(dir, 'd.csv')
+  writeFileSync(file, 'id,name,qty\n2,x,4\n5,,6\n')
+  const app = await launch()
+  try {
+    const page = app.page
+    await typeFolder(page, dir)
+    await row(page, 'd.csv').click()
+    const cdp = await page.context().newCDPSession(page)
+    const line = (n: number) => page.locator('#content .cm-line').nth(n)
+    /** Converts 「にほん」 to 「日本」 at the cursor; during it: the cell the text is in, where the row's cells start. */
+    const compose = async (n: number) => {
+      const lefts = () => line(n).locator('.cm-csv-cell').evaluateAll((cs) => cs.map((c) => Math.round(c.getBoundingClientRect().left)))
+      const before = await lefts()
+      for (const text of ['に', 'にほ', 'にほん']) {
+        await cdp.send('Input.imeSetComposition', { text, selectionStart: text.length, selectionEnd: text.length })
+      }
+      const cell = await page.evaluate(() => getSelection()!.anchorNode!.parentElement!.closest('.cm-csv-cell')?.textContent ?? null)
+      expect(await lefts()).toEqual(before)
+      await cdp.send('Input.insertText', { text: '日本' })
+      return cell
+    }
+    await line(1).click()
+    await page.keyboard.press('Home')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight') // 2,|x
+    expect(await compose(1)).toBe(',にほんx')
+    await page.keyboard.press('End')
+    await page.keyboard.press('Tab') // a new, empty last cell
+    expect(await compose(1)).toBe(',にほん')
+    await line(2).click()
+    await page.keyboard.press('Home')
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight') // 5,|,6
+    expect(await compose(2)).toBe(',にほん')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe('id,name,qty\n2,日本x,4,日本\n5,日本,6\n')
+    await expect(line(1).locator('.cm-csv-cell')).toHaveText(['2', '日本x', '4', '日本']) // not the cursor's row: no "," shown
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await app.close().finally(() => removeDir(dir))
+  }
+})
+
 test('the bar explains a wrong path and completes subfolders from the disk', async () => {
   const dir = tempDir('simpletter-bar-')
   mkdirSync(join(dir, 'Notebooks'))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { displayName, freeName, isSortOrder, nameTaken, newFileName, safeTitle, sortFiles } from './names'
+import { displayName, fileKind, freeName, isListed, isSortOrder, nameTaken, newFileName, safeTitle, sortFiles } from './names'
 
 const named = (...names: string[]) => names.map((name) => ({ name }))
 
@@ -8,6 +8,13 @@ describe('displayName', () => {
     expect(displayName('メモ.md')).toBe('メモ')
     expect(displayName('README.MD')).toBe('README')
     expect(displayName('log.txt')).toBe('log.txt')
+  })
+})
+
+describe('fileKind', () => {
+  it('notes, tables (CSV / TSV, any case) and the rest; notes and tables are listed', () => {
+    expect(['a.md', 'b.CSV', 'c.tsv', 'd.txt', 'csv', 'e.csv.bak'].map(fileKind)).toEqual(['markdown', 'csv', 'tsv', 'plain', 'plain', 'plain'])
+    expect(['a.md', 'b.csv', 'c.TSV', 'd.txt'].map(isListed)).toEqual([true, true, true, false])
   })
 })
 

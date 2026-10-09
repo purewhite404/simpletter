@@ -27,6 +27,13 @@
         "description": "Markdown",
         "role": "Editor",
         "mimeType": "text/markdown"
+      },
+      {
+        "ext": ["csv", "tsv"],
+        "name": "simpletter.table",
+        "description": "CSV / TSV",
+        "role": "Editor",
+        "mimeType": "text/csv"
       }
     ],
     "icon": [

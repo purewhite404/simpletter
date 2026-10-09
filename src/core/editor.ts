@@ -1,16 +1,19 @@
 // The note's text editor (CodeMirror 6). Markdown notes get the live preview
-// (livePreview.ts) and list continuation on Enter; any other file opened from
-// outside (.txt, .log, …) is plain monospace text, as before.
+// (livePreview.ts) and list continuation on Enter; CSV / TSV files show as a table
+// (csvPreview.ts); any other file opened from outside (.txt, .log, …) is plain
+// monospace text, as before.
 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { indentUnit, LanguageSupport } from '@codemirror/language'
 import { deleteMarkupBackward, markdownLanguage } from '@codemirror/lang-markdown'
 import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap, placeholder } from '@codemirror/view'
+import { csvPreview, insertDelimiter } from './csvPreview'
 import { continueList, dedentListItem, indentListItem, LIST_INDENT } from './lists'
 import { focusEffect, livePreview } from './livePreview'
+import type { FileKind } from './names'
 
-export type EditorKind = 'markdown' | 'plain'
+export type EditorKind = FileKind
 
 export interface NoteEditor {
   getValue(): string
@@ -22,15 +25,23 @@ export interface NoteEditor {
 const PLACEHOLDER = 'ここに書く…（# 見出し、**太字**、- 箇条書き、- [ ] チェックボックス）'
 
 function extensions(kind: EditorKind, onChange: () => void): Extension[] {
-  const common: Extension[] = [
+  const base: Extension[] = [
     history(),
-    EditorView.lineWrapping,
     EditorView.contentAttributes.of({ 'aria-label': '本文', spellcheck: 'false' }),
-    placeholder(PLACEHOLDER),
     EditorView.updateListener.of((u) => {
       if (u.docChanged) onChange()
     })
   ]
+  if (kind === 'csv' || kind === 'tsv') {
+    // No line wrapping: a wide table scrolls sideways (long cells wrap inside their column). Tab = a new cell.
+    return [
+      ...base,
+      csvPreview(kind === 'csv' ? ',' : '\t'),
+      EditorView.editorAttributes.of({ class: 'cm-csv' }),
+      keymap.of([{ key: 'Tab', run: insertDelimiter }, ...defaultKeymap, ...historyKeymap])
+    ]
+  }
+  const common: Extension[] = [...base, EditorView.lineWrapping, placeholder(PLACEHOLDER)]
   if (kind === 'plain') {
     return [...common, EditorView.editorAttributes.of({ class: 'cm-plain' }), keymap.of([...defaultKeymap, ...historyKeymap])]
   }

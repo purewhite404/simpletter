@@ -34,9 +34,11 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - **`src/core/`** — the notes UI, ported from Brighterm's `main.js`, behaviour unchanged. It talks
   only to a `NotesHost` (`host.ts`) = the subset of Brighterm's `window.brighterm` Host API that
   Notes uses, **same shape**. Keep it that way: it's what lets the same code be Brighterm's plugin.
-  `names.ts` = pure naming/sorting helpers; `markup.ts` = the HTML (was `index.html`).
+  `names.ts` = pure naming/sorting helpers, `fileKind` (md / csv / tsv / plain; `isListed` = all but plain);
+  `markup.ts` = the HTML (was `index.html`).
   `editor.ts` = the text editor (CodeMirror 6) in `#content`: `.md` → `markdownLanguage` (GFM) + live
-  preview + list continuation (`insertNewlineContinueMarkup`), anything else → plain mono text. Opening a
+  preview + list continuation (`insertNewlineContinueMarkup`), `.csv`/`.tsv` → the table view (no line
+  wrapping: scrolls sideways; Tab = the delimiter, `insertDelimiter`), anything else → plain mono text. Opening a
   file = `view.setState` (fresh undo history, no change event → no save). Import `markdownLanguage`, never
   `markdown()`: that one drags lang-html/js/css into the bundle.
   `lists.ts` = list keys (tested in `lists.test.ts`, cursor `‸`): Tab / Shift+Tab move an item **with its
@@ -64,6 +66,32 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   nested in a quote/list: no widget, descended like normal text (its `>` marks are inside the Table node).
   Test files mark the cursor with `‸` (tables are full of `|`).
   Styles: `.cm-lp-*` in `notes.css` (`--bt-*` tokens).
+  `csv.ts` (pure, `csv.test.ts`) + `csvPreview.ts` (`csvPreview.test.ts`) = CSV/TSV as a table, **line by
+  line** (user's choice over a grid with its own editing): each line a row, each cell a `Decoration.mark`
+  `.cm-csv-cell` = inline-block `width: calc(Nch + 1px)` (mono font; East Asian wide = 2 ch; the +1px: else a
+  cell its text fills exactly wraps its last char — e2e checks row heights). The text stays CM's text:
+  click / select / IME / undo as usual, saved as is. **A cell = the delimiter before its field + the field**
+  (the 1st column has none); width = that, widest in the file (quotes included), max 40 (longer wraps
+  inside), so nothing moves when the cursor's row shows its marks. Delimiters and quotes are **widgets**
+  (`MarkWidget`), never text spans: a delimiter = 1 ch `.cm-csv-sep`, empty off the cursor's lines (or
+  unfocused), `,` / `→` dimmed on them; quotes / the 1st of `""` replaced away, or a dimmed `"` widget.
+  **IME (user report 2026-10-09: composing text not shown, IME window at the screen's top-left):** the old
+  layout (delimiter = a mark span at the *end* of the cell before) made the browser type text composed right
+  after a `,` into the `,`'s text node — the narrow cell before, wrapping a char a line. Now: delimiter leads
+  the cell, it's a widget (nothing to type into), and the cell mark is `inclusiveStart: true` (else CM draws
+  the widget at a mark's start *outside* the mark — the caret then sits between cells); `inclusiveEnd: true`.
+  While `view.composing` the ViewPlugin only maps its decorations (no cells appear / move under the
+  composition; `stale` → rebuilt by a `compositionend` handler's rescan dispatch). e2e covers it with CDP
+  `Input.imeSetComposition` (cell the composing text is in + cells' x unchanged); it fails without
+  `inclusiveStart`. CDP's composition doesn't break the way TSF does — check DOM placement, not "does it
+  commit". Leftover: composing in an *empty first* cell shows in the 2nd cell until committed.
+  A record over several lines (quoted line break) = raw lines (`cm-csv-raw`). Big files
+  (50k lines = 3.7 MB: full scan ~30 ms, edit ~0.1 ms, viewport decorations ~1 ms): `modelField`
+  (StateField: widths + multi-line ranges) is scanned on create, on an edit only widened from the changed
+  lines (multi ranges mapped), rescanned `RESCAN_DELAY` (300 ms) after typing stops (ViewPlugin timer →
+  effect); decorations come from a ViewPlugin over `visibleRanges` only (focus = `view.hasFocus`, a parameter
+  of the pure `csvDecorations`). No header row, UTF-8 only (Shift_JIS shows garbled), CRLF → LF on save like
+  every file (user's choices). Tests: `RangeSet.between` goes layer by layer — sort before comparing.
 - **`src/standalone/`** — the app: `tauriHost.ts` (Rust commands, localStorage for `storage`, a
   folder handle's `id` = the folder's absolute path), `folderBar.ts` (vanilla port of Brighterm's
   `FolderBar.tsx` — Brighterm draws that bar in its shell, here the window does), `folderBarText.ts`
@@ -77,7 +105,8 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   `files.rs` (list/read/write/delete; a name must be one plain component — no separators, `..`, drive),
   `open_file.rs` (launch args → the file to open; path → folder + name).
 - **Opening a file from outside** (`.md` double-click): `tauri.conf.json` `bundle.fileAssociations`
-  (md, markdown; ProgID `simpletter.markdown` — NSIS uses `name` as the class key, so not a generic name)
+  (md, markdown; ProgID `simpletter.markdown` — NSIS uses `name` as the class key, so not a generic name;
+  csv, tsv → `simpletter.table`)
   → Explorer runs `simpletter.exe "<path>"`. `run()` keeps argv's file in `InitialFile`; the UI pulls it
   once with `initial_file` (pull, so no race with the listener). A later launch goes through
   `tauri-plugin-single-instance` → `open-file` event (the path) + window to the front. Either way the UI
@@ -143,6 +172,15 @@ Checked by hand (2026-10-09): Japanese IME OK; long files OK for the user's note
 
 Done (2026-10-09): list keys (user's request): Tab = 4 spaces; numbered sub-lists restart at 1 on Tab,
 Enter twice back to the parent level counts on. Tests: Vitest 67 (lists 11), e2e 8.
+
+Done (2026-10-09): CSV / TSV as a table (user's choices: line-by-line live view, cursor row keeps the
+columns with dimmed marks, sideways scroll + 40 ch cap, multi-line records raw, listed always, file
+association added, no header row, UTF-8 only, line endings as before). Tests: Vitest 85 (csv 9,
+csvPreview 8), e2e 10. `dist-brighterm/main.js` ~726 KB, static-scan clean — Brighterm's Notes would list
+csv/tsv too. Checked by hand by the user (2026-10-09, notes written into the test CSV): widths, multi-line
+records raw (fine: their CSVs have none), empty cells, TSV, saving — OK. Asked for: Tab in CSV = `,` (done),
+IME composing inside the cell (fixed as above — re-checked by hand by the user: OK). Not yet checked: the
+installed build's csv association.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons).

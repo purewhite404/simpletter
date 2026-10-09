@@ -11,7 +11,9 @@ import type { FileEntry, FolderHandle, NotesHost } from './host'
 import { NOTES_MARKUP } from './markup'
 import {
   displayName,
+  fileKind,
   freeName,
+  isListed,
   isMarkdown,
   isSortOrder,
   nameTaken,
@@ -80,7 +82,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
   let sortOrder: SortOrder = 'name-asc'
   let currentFile: string | null = null // file name of the currently open note
   let saveTimer: ReturnType<typeof setTimeout> | null = null
-  // A non-.md file opened from outside (a .txt, .log, config file...); listed alongside the notes.
+  // A file opened from outside that isn't listed otherwise (a .txt, .log, config file...); listed alongside the notes.
   let extraFile: string | null = null
 
   /** The open folder — every file action needs one (the notes screen only shows with a folder). */
@@ -137,7 +139,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
 
   async function refreshFileList(): Promise<void> {
     const all = await host.fs.listFiles(folder())
-    files = all.filter((f) => !f.isDirectory && (isMarkdown(f.name) || f.name === extraFile))
+    files = all.filter((f) => !f.isDirectory && (isListed(f.name) || f.name === extraFile))
     sortFiles(files, sortOrder)
     renderFileList()
   }
@@ -341,7 +343,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     currentFile = name
     const content = await host.fs.readFile(folder(), name)
     titleInput.value = displayName(name)
-    editor.setValue(content, isMarkdown(name) ? 'markdown' : 'plain')
+    editor.setValue(content, fileKind(name))
     renderFileList()
   }
 
@@ -414,7 +416,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
   // "Open in Notes" from outside (Brighterm's Files tile): switch to that file's folder and open it.
   host.onOpenFile(async ({ folder, name }) => {
     await ready
-    extraFile = isMarkdown(name) ? null : name
+    extraFile = isListed(name) ? null : name
     await useFolder(folder)
     await openFile(name)
     editor.focus()
