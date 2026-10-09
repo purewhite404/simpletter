@@ -1,126 +1,64 @@
 # simpletter
 
-フォルダの中の `.md`（と `.csv` / `.tsv`）ファイルを一覧・表示・編集する、軽量なメモ帳アプリです（Windows、Tauri 2）。
-[Brighterm](../brighterm) の Notes タイルを切り出したもので、同じ画面のコードが Brighterm の
-Notes プラグインとしても動きます。
+フォルダの中の `.md` / `.csv` / `.tsv` を一覧・編集するメモ帳です（Windows、Tauri 2）。
+[Brighterm](../brighterm) の Notes を切り出したもので、同じコードが Brighterm のプラグインとしても動きます。
 
 ## インストール
 
-[Releases](https://github.com/purewhite404/simpletter/releases) から `simpletter_x.y.z_x64-setup.exe` をダウンロードして実行します
-（管理者権限はいりません。新しい版も同じように実行すれば上書きで更新されます）。
-コード署名をしていないので、Windows の SmartScreen（「Windows によって PC が保護されました」）が出たら
-「詳細情報」→「実行」を押してください。
+[Releases](https://github.com/purewhite404/simpletter/releases) の `simpletter_x.y.z_x64-setup.exe` を実行します。
+SmartScreen が出たら「詳細情報」→「実行」。
 
-## できること
+## 使い方
 
-- 上のバーにフォルダのパスを入力（または貼り付け）して Enter。入力中はサブフォルダの候補が出ます
-  （Tab で補完、↑↓ で選択）。右端のボタンからフォルダを選ぶウィンドウも開けます。
-  エクスプローラーの「パスのコピー」（`"` 付き）、`~`（ホーム）もそのまま使えます。
-- 左の一覧から `.md` を開いて編集。入力が止まって 0.4 秒で自動保存されます。
-  `.markdown` も `.md` と同じメモとして扱います（名前を変えても `.markdown` のまま）。
-  一覧には拡張子まで表示します。タイトル欄と名前の変更では、メモの拡張子は表示も入力もいりません。
-- `.md` は Obsidian のライブプレビューのように、整形された表示のまま編集できます（下記）。
-- `.csv` / `.tsv` も一覧に出て、表の形のまま編集できます（下記）。
-  それ以外のファイル（外から開いた `.txt` など）はこれまで通りの等幅テキストです。
-- 「＋ 新規」でメモを追加。タイトル欄を書き換えて Enter でファイル名が変わります。
-- 並べ替え（名前 A→Z / Z→A、新しい順 / 古い順）、検索（ファイル名）。
-- 一覧の右クリック: コピー / 切り取り / 貼り付け（別のフォルダへも）/ パスのコピー / 名前の変更 / 削除。
-- 安全のため、実行できる種類のファイル（`.exe` `.bat` `.cmd` `.ps1` `.vbs` `.js` `.lnk` など）は新しく作れません
-  （名前の変更・貼り付けでも）。すでにあるものは開いて編集できます。`CON` `NUL` など Windows の予約名は先頭に `_` が付きます。
-  1 GB より大きいファイルは開きません。
-- 狭いウィンドウでは一覧が畳まれ、☰ で開きます。
-- 最後に開いたフォルダと並べ替えは次回の起動でも残ります。
-- エクスプローラーで `.md` / `.markdown` をダブルクリックすると simpletter で開きます（インストール版）。
-  そのファイルのフォルダに切り替わります。もう開いているときは同じウィンドウで開きます。
+- 上のバーにフォルダのパスを入力して Enter（Tab で補完）。
+- 編集は 0.4 秒で自動保存。タイトル欄で Enter するとファイル名が変わります。
+- 実行ファイル（`.exe` `.bat` `.ps1` `.lnk` など）は新しく作れません。1 GB を超えるファイルは開きません。
 
-## ライブプレビュー（`.md` の編集）
+### ライブプレビュー
 
-見出しや太字は整形して表示され、`#` や `**` などの記号は**カーソルのある場所だけ**現れます。
-ファイルには書いたとおりの Markdown がそのまま保存されます（勝手に書き換えたりしません）。
+`.md` / `.markdown` は Obsidian 風に整形して表示し、`#` や `**` などの記号はカーソルのある所だけ出ます。
+画像と HTML は未対応、リンクはクリックしても開きません。
 
-| 書き方 | 表示 | 記号が出るとき |
-|---|---|---|
-| `# 見出し` 〜 `######`、下線式（`===` / `---`） | 大きな文字 | カーソルがその行にあるとき |
-| `**太字**` `*斜体*` `~~取り消し~~` `` `コード` `` | その通り | カーソルがその語に触れているとき |
-| `[文字](URL)`、`<URL>`、そのままの URL | リンク色（クリックで開くのは未対応） | 同上 |
-| `- 項目` / `1. 項目` | 「•」/ 番号 | その行にあるとき |
-| `- [ ] やること` | チェックボックス（クリックで `[x]` になり保存、完了は取り消し線） | `[ ]` の中にカーソルがあるとき |
-| `> 引用` | 左に縦線 | その行にあるとき |
-| `---`（水平線） | 横線 | その行にあるとき |
-| ` ``` ` コードブロック | 背景付きの等幅（中身は装飾しない） | ブロックの中にいるとき |
-| 表（`\| a \| b \|` と `\|---\|---\|`） | 罫線付きの表（`:--` `:-:` `--:` で左・中央・右揃え、セル内の太字やリンクも整形） | 表の中にいるとき（表全体が元の文字に戻る） |
+- Tab / Shift+Tab: リストの項目を下の項目ごと 4 スペース下げる・戻す（番号は振り直し）。
 
-- リストや引用の行末で Enter → 次の行にも `- ` / `1. ` / `> ` が続きます。
-  空の項目で Enter → 一つ上のレベルに戻ります（番号はそのレベルの続き）。一番上のレベルならリストの終わり。
-- 箇条書きの行で Tab / Shift+Tab → その項目を（下の項目ごと）スペース 4 つ分下げる・戻す。
-  番号付きは下げた先で 1 から振り直し、元のレベルの後ろの項目も番号を詰めます。
-  リストの最初の項目は下げられません（コードブロックになってしまうため）。箇条書き以外の行は行ごと字下げ。
-- Ctrl+Z / Ctrl+Y で元に戻す・やり直す。
-- 表はクリックしたセルの位置にカーソルが入り、表全体が `|` 区切りの文字（等幅）に戻ります。
-  ↑↓ キーで表の上下の行から入ることもできます。列の幅をそろえるなどの書き換えはしません。
-  引用やリストの中の表は文字のままです。
-- 画像・HTML はまだそのままの文字で表示されます。
+### CSV / TSV
 
-## CSV / TSV
+- Tab で区切り文字（CSV は `,`、TSV はタブ）。
+- UTF-8 のみ（Shift_JIS は文字化けします）。
 
-- Tab キーで区切り文字が入ります（CSV は `,`、TSV はタブ）。
-- 文字コードは UTF-8 です（BOM 付きも可）。Shift_JIS のファイルは文字化けします。
+## 開発
 
-## 使い方（開発）
-
-PowerShell で:
+必要なもの: Node.js、Rust（stable-msvc）、Visual Studio Build Tools（C++）。PowerShell で:
 
 ```powershell
-npm install          # 初回だけ
-npm run tauri dev    # 開発モードで起動（画面のコードは保存すると即反映、Rust の変更は自動で再ビルド）
-npm run tauri build  # インストーラーを作る → src-tauri\target\release\bundle\nsis\
+npm install
+npm run tauri dev             # 開発モード
+npm run tauri build           # インストーラー → src-tauri\target\release\bundle\nsis\
+npm run bump -- patch|minor   # 5 つのファイルのバージョンをまとめて上げる
 ```
 
-バージョンは 5 つのファイルに書かれているので、`npm run bump -- patch`（不具合の修正）/ `minor`（機能の追加）で
-まとめて上げます（`npm run bump` だけなら今のバージョンを表示）。上げるのはインストーラーを配るときだけです。
+`v*` のタグを push すると、GitHub Actions がインストーラー付きの下書きリリースを作ります。
 
-リリース: `v0.3.0` のようなタグを push すると、GitHub Actions（`.github/workflows/release.yml`）が Windows で
-チェックとビルドをして、インストーラー付きの**下書き**のリリースを作ります。GitHub の Releases で中身を確かめて
-「Publish release」を押すと公開されます。
-
-必要なもの: Node.js、Rust（`rustup`、stable-msvc）、Visual Studio Build Tools（C++）、WebView2（Windows 11 は標準）。
-
-## テスト
+### テスト
 
 | コマンド | 内容 |
 |---|---|
-| `npm run typecheck` | TypeScript の型チェック |
-| `npm test` | 単体テスト（Vitest。画面全体も偽のファイル操作で動かします） |
-| `npm run test:rust` | Rust 側（パスの解釈・ファイル操作）のテスト |
-| `npm run test:e2e` | デバッグ版をビルドし、本物のアプリを Playwright で操作（画面外で動くので作業の邪魔をしません） |
+| `npm run typecheck` | 型チェック |
+| `npm test` | Vitest |
+| `npm run test:rust` | Rust |
+| `npm run test:e2e` | 実アプリを Playwright で操作 |
 
-## Brighterm に組み込む
+### Brighterm に組み込む
 
-```powershell
-npm run build:brighterm
-```
+`npm run build:brighterm` の出力 `dist-brighterm\` を Brighterm の `plugins-builtin\notes\` にコピーします。
+Brighterm の `notes.spec.ts` は本文が textarea の前提なので、`#content .cm-content` に直す必要があります。
 
-`dist-brighterm\`（`manifest.json` / `index.html` / `main.js` / `style.css`）が Brighterm の
-`plugins-builtin\notes\` と同じ形で出力されます。これを中身ごとコピーすれば Brighterm の Notes が
-このリポジトリの版になります（2026-10-08、Brighterm の `tests/e2e/notes.spec.ts` 全 10 件が通ることを確認済み）。
-
-ただし 2026-10-09 のライブプレビュー以降、本文は `<textarea>` ではなく CodeMirror になったので、
-Brighterm の `notes.spec.ts` も `#content` を `#content .cm-content`（`toHaveValue` → `toHaveText`）に
-直す必要があります。`main.js` は未圧縮で約 700KB になりました（Brighterm の静的チェックに引っかかる記述はなし、
-CSP の `style-src 'unsafe-inline'` で CodeMirror のスタイルも効きます）。
-
-## 構成
+### 構成
 
 ```
-src/core/        メモ帳本体（一覧・編集・右クリックメニュー）。ファイル操作は host 経由だけ
-                 editor.ts = CodeMirror 6 のエディタ、livePreview.ts = ライブプレビュー、
-                 csv.ts / csvPreview.ts = CSV / TSV の表表示
-src/standalone/  単体アプリ用: フォルダバー、Tauri とのつなぎ（tauriHost.ts）、配色（tokens.css）
-src/brighterm/   Brighterm プラグイン用の入口と manifest
-src-tauri/       Rust: フォルダパスの解釈・補完、ファイルの読み書き、クリップボード、起動時のファイル
-tests/e2e/       実アプリの e2e
+src/core/        メモ帳本体（ファイル操作は host 経由だけ）
+src/standalone/  単体アプリ用: フォルダバー、Tauri とのつなぎ
+src/brighterm/   Brighterm プラグイン用の入口
+src-tauri/       Rust: パスの解釈・補完、ファイル操作
+tests/e2e/       e2e
 ```
-
-## ライセンス
-
-MIT

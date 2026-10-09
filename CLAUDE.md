@@ -5,9 +5,10 @@ renamed. Split out of Brighterm (`../brighterm`, its `plugins-builtin/notes/`) o
 because the user edits lots of one-off `.md` files and wanted something light. **Notes is
 developed here from now on**; Brighterm's copy stays as it was until the user decides how to
 bring it back (`npm run build:brighterm`). User-facing docs: `README.md` (Japanese).
-**README style (user's request, 2026-10-09):** only what a user can't guess (keys, limits like UTF-8 only, setup).
+**README style (user's request, 2026-10-09):** short — cut wherever possible. Only what a user can't guess (keys, limits like UTF-8 only, setup).
 No behaviour that's obvious from using it, no "why it's better than a naive design", no OS how-tos, no
-per-version migration notes, never the user's real name / account folder.
+per-version migration notes, no license section (LICENSE is enough), never the user's real name / account folder.
+Headings: 使い方 (### ライブプレビュー, ### CSV / TSV), 開発 (### テスト, ### Brighterm に組み込む, ### 構成).
 Talk to the user in Japanese. Commit messages in English (user's request, 2026-10-09).
 
 **Identity (user's request, 2026-10-09):** published as **purewhite404** — no real name anywhere (LICENSE,
