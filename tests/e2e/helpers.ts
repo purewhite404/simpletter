@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import type { SaveAnswer } from '../../src/core/notes'
 
 /**
  * Drives the real simpletter.exe (a debug build: `npm run test:e2e` builds it) over
@@ -112,17 +113,23 @@ export async function typeFolder(page: Page, path: string): Promise<void> {
  * alert / confirm become native Windows dialogs in the app (Tauri's dialog plugin makes them
  * async), which CDP can't see or click — and an off-screen window's dialog must not pop up on the
  * user's screen. Tests swap them for async stand-ins: `dialogs(page)` = the messages so far,
- * `answerConfirm(page, true)` = OK from now on (default: cancel).
+ * `answerConfirm(page, true)` = OK from now on (default: cancel), `answerAskSave(page, 'save')` = the answer to
+ * "save the changes?" (manual save; default: cancel).
  */
 export async function stubDialogs(page: Page): Promise<void> {
   await page.evaluate(() => {
-    const w = window as unknown as { __dialogs: string[]; __confirm: boolean }
+    const w = window as unknown as { __dialogs: string[]; __confirm: boolean; __askSave: SaveAnswer }
     w.__dialogs = []
     w.__confirm = false
+    w.__askSave = 'cancel'
     window.alert = (m?: unknown) => void w.__dialogs.push(String(m))
     ;(window as unknown as { confirm: (m: string) => Promise<boolean> }).confirm = async (m: string) => {
       w.__dialogs.push(String(m))
       return w.__confirm
+    }
+    window.askSave = async (m: string) => {
+      w.__dialogs.push(m)
+      return w.__askSave
     }
   })
 }
@@ -130,6 +137,16 @@ export const dialogs = (page: Page): Promise<string[]> =>
   page.evaluate(() => (window as unknown as { __dialogs: string[] }).__dialogs)
 export const answerConfirm = (page: Page, ok: boolean): Promise<void> =>
   page.evaluate((v) => void ((window as unknown as { __confirm: boolean }).__confirm = v), ok)
+export const answerAskSave = (page: Page, answer: SaveAnswer): Promise<void> =>
+  page.evaluate((v) => void ((window as unknown as { __askSave: SaveAnswer }).__askSave = v), answer)
+
+/** The native window's title (what the taskbar shows). */
+export const windowTitle = (page: Page): Promise<string> =>
+  page.evaluate(() =>
+    (
+      window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, args?: object) => Promise<string> } }
+    ).__TAURI_INTERNALS__.invoke('plugin:window|title', { label: 'main' })
+  )
 
 /** The note's text area (CodeMirror's contenteditable). */
 export const editor = (page: Page) => page.locator('#content .cm-content')

@@ -30,6 +30,7 @@ export const NOTES_MARKUP = `
           </svg>
         </button>
         <input id="title" placeholder="無題のメモ" />
+        <label id="autosave-toggle" title="オフのときは Ctrl+S で保存"><input id="autosave" type="checkbox" checked />自動保存</label>
       </div>
       <div id="content"></div>
     </div>

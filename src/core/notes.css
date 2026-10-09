@@ -218,6 +218,24 @@ body {
   padding: 4px 0;
 }
 
+#autosave-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--bt-text-secondary);
+  font-size: var(--bt-font-size-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+#autosave {
+  margin: 0;
+  accent-color: var(--bt-accent);
+  cursor: pointer;
+}
+
 /* ---- The editor (CodeMirror 6, editor.ts). */
 
 #content {

@@ -17,6 +17,8 @@ import type { FileKind } from './names'
 
 export interface NoteEditor {
   getValue(): string
+  /** Is the text exactly `text`? (Cheap while the lengths differ — checked after every keystroke.) */
+  hasValue(text: string): boolean
   /** Shows another file: new text, fresh undo history; does not count as an edit. */
   setValue(text: string, kind: FileKind): void
   focus(): void
@@ -92,6 +94,7 @@ export function createEditor(parent: HTMLElement, onChange: () => void): NoteEdi
   const view = new EditorView({ parent, state: EditorState.create({ extensions: extensions('markdown', onChange) }) })
   return {
     getValue: () => view.state.doc.toString(),
+    hasValue: (text) => view.state.doc.length === text.length && view.state.doc.toString() === text,
     setValue(text, kind) {
       view.setState(EditorState.create({ doc: text, extensions: extensions(kind, onChange) }))
       // A new state starts "unfocused"; the view may well still have the focus.

@@ -5,9 +5,10 @@ import { installDialogs } from './dialogs'
 // The dialog plugin's JS API, faked: what it was called with, and the answer the user "clicks".
 const calls: { fn: string; text: string; options: unknown }[] = []
 let answer = false
+let clicked = 'Ok'
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   confirm: async (text: string, options: unknown) => (calls.push({ fn: 'confirm', text, options }), answer),
-  message: async (text: string, options: unknown) => (calls.push({ fn: 'message', text, options }), 'Ok')
+  message: async (text: string, options: unknown) => (calls.push({ fn: 'message', text, options }), clicked)
 }))
 
 describe('installDialogs', () => {
@@ -16,7 +17,10 @@ describe('installDialogs', () => {
     calls.length = 0
     installDialogs()
   })
-  afterEach(() => Object.assign(window, original))
+  afterEach(() => {
+    Object.assign(window, original)
+    delete window.askSave
+  })
 
   it("confirm() goes through the plugin's JS confirm (the `message` command) and resolves to the answer", async () => {
     const ask = window.confirm as unknown as (text: string) => Promise<boolean>
@@ -28,6 +32,25 @@ describe('installDialogs', () => {
       { fn: 'confirm', text: '「a.md」を削除しますか？', options: { title: 'simpletter', kind: 'warning' } },
       { fn: 'confirm', text: 'again?', options: { title: 'simpletter', kind: 'warning' } }
     ])
+  })
+
+  it("askSave(): save / don't save / cancel buttons; the label clicked → the answer, Esc = cancel", async () => {
+    const results = []
+    for (const label of ['保存', '保存しない', 'キャンセル', 'Cancel']) {
+      clicked = label
+      results.push(await window.askSave!('「a.md」への変更を保存しますか？'))
+    }
+    clicked = 'Ok'
+    expect(results).toEqual(['save', 'discard', 'cancel', 'cancel'])
+    expect(calls[0]).toEqual({
+      fn: 'message',
+      text: '「a.md」への変更を保存しますか？',
+      options: {
+        title: 'simpletter',
+        kind: 'warning',
+        buttons: { yes: '保存', no: '保存しない', cancel: 'キャンセル' }
+      }
+    })
   })
 
   it("alert() shows the plugin's message", () => {

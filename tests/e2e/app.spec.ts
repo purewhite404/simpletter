@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  answerAskSave,
   answerConfirm,
   dialogs,
   editor,
@@ -12,7 +13,8 @@ import {
   rows,
   stubDialogs,
   tempDir,
-  typeFolder
+  typeFolder,
+  windowTitle
 } from './helpers'
 
 const mdFiles = (dir: string) =>
@@ -185,6 +187,68 @@ test('closing the window right after typing saves the last words first', async (
     expect(readFileSync(join(dir, 'a.md'), 'utf-8')).toBe('last words')
   } finally {
     await (closed ? Promise.resolve() : app.close()).finally(() => removeDir(dir))
+  }
+})
+
+test('manual save: the window title shows *, Ctrl+S saves, leaving and closing ask', async () => {
+  const profile = tempDir('simpletter-e2e-profile-')
+  const dir = tempDir('simpletter-manual-')
+  writeFileSync(join(dir, 'a.md'), 'note A')
+  writeFileSync(join(dir, 'b.md'), 'note B')
+  const read = (name: string) => readFileSync(join(dir, name), 'utf-8')
+  let app = await launch(profile)
+  let closed = false
+  try {
+    const page = app.page
+    await stubDialogs(page)
+    await expect.poll(() => windowTitle(page)).toBe('simpletter')
+    await typeFolder(page, dir)
+    await expect(editor(page)).toHaveText('note A')
+    await expect.poll(() => windowTitle(page)).toBe('a.md - simpletter')
+    await editor(page).fill('auto')
+    await expect.poll(() => read('a.md')).toBe('auto')
+    expect(await windowTitle(page)).toBe('a.md - simpletter') // auto save: never a *
+
+    await page.getByLabel('自動保存').uncheck()
+    await editor(page).fill('typed')
+    await expect.poll(() => windowTitle(page)).toBe('*a.md - simpletter')
+    await page.waitForTimeout(600) // longer than the auto save's wait
+    expect(read('a.md')).toBe('auto')
+    await editor(page).press('Control+s')
+    await expect.poll(() => read('a.md')).toBe('typed')
+    await expect.poll(() => windowTitle(page)).toBe('a.md - simpletter')
+
+    // Another note with changes not saved: asked; cancel stays, save writes them first.
+    await editor(page).fill('typed again')
+    await row(page, 'b.md').click()
+    await expect.poll(() => dialogs(page)).toEqual(['「a.md」への変更を保存しますか？'])
+    await expect(editor(page)).toHaveText('typed again')
+    await answerAskSave(page, 'save')
+    await row(page, 'b.md').click()
+    await expect(editor(page)).toHaveText('note B')
+    expect(read('a.md')).toBe('typed again')
+    await expect.poll(() => windowTitle(page)).toBe('b.md - simpletter')
+
+    // Closing: asked too; save = saved, and the window closes by itself.
+    await editor(page).fill('B, last words')
+    await expect(app.close()).resolves.toEqual({ killed: false })
+    closed = true
+    expect(read('b.md')).toBe('B, last words')
+
+    // Still manual after a restart. Closing, cancel: the window stays (the test kills it), nothing written.
+    app = await launch(profile)
+    closed = false
+    await stubDialogs(app.page)
+    await expect(app.page.getByLabel('自動保存')).not.toBeChecked()
+    await row(app.page, 'b.md').click()
+    await editor(app.page).fill('never saved')
+    await expect.poll(() => windowTitle(app.page)).toBe('*b.md - simpletter')
+    await expect(app.close()).resolves.toEqual({ killed: true })
+    closed = true
+    expect(read('b.md')).toBe('B, last words')
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await (closed ? Promise.resolve() : app.close()).finally(() => Promise.all([removeDir(profile), removeDir(dir)]))
   }
 })
 

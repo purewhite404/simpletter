@@ -7,7 +7,7 @@
 import { EditorView } from '@codemirror/view'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FileEntry, FolderHandle, NotesHost, OpenedFile } from './host'
-import { startNotes } from './notes'
+import { startNotes, type NotesStatus, type SaveAnswer } from './notes'
 
 type Folder = Record<string, { content: string; modifiedAt: number }>
 
@@ -623,6 +623,190 @@ describe('search (Ctrl+F)', () => {
     const f3 = new KeyboardEvent('keydown', { key: 'F3', bubbles: true, cancelable: true })
     document.body.dispatchEvent(f3)
     expect(f3.defaultPrevented).toBe(true)
+  })
+})
+
+describe('manual save', () => {
+  const ctrlS = () => {
+    const e = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+    editorView().contentDOM.dispatchEvent(e)
+    return e
+  }
+  const autoSaveBox = () => $<HTMLInputElement>('#autosave')
+  function toggleAutoSave(on: boolean): void {
+    autoSaveBox().checked = on
+    autoSaveBox().dispatchEvent(new Event('change'))
+  }
+  /** window.askSave answers `answers` in turn; `asked` = the questions so far. */
+  let asked: string[]
+  let answers: SaveAnswer[]
+  beforeEach(() => {
+    asked = []
+    answers = []
+    window.askSave = async (text) => (asked.push(text), answers.shift() ?? 'cancel')
+  })
+  afterEach(() => delete window.askSave)
+
+  it('the toggle is remembered; manual: typing is not saved, the status says so, Ctrl+S saves', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 } }
+    const { host, storage } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    const statuses: NotesStatus[] = []
+    await startNotes(root(), host, { onStatus: (s) => statuses.push(s) })
+    expect(autoSaveBox().checked).toBe(true) // the default: as before
+    expect(statuses).toEqual([{ name: null, dirty: false }])
+    row('a.md').click()
+    await settle()
+    expect(statuses.at(-1)).toEqual({ name: 'a.md', dirty: false })
+    typeContent('auto') // auto save: never shown as unsaved
+    expect(statuses.at(-1)).toEqual({ name: 'a.md', dirty: false })
+    await vi.waitFor(() => expect(d['a.md'].content).toBe('auto'), { timeout: 2000 })
+
+    toggleAutoSave(false)
+    await settle()
+    expect(storage.get('autoSave')).toBe(false)
+    const count = statuses.length
+    typeContent('manual')
+    typeContent('manual, more') // told once, not per keystroke
+    expect(statuses.slice(count)).toEqual([{ name: 'a.md', dirty: true }])
+    await sleep(600) // longer than the save delay
+    expect(d['a.md'].content).toBe('auto')
+    typeContent('auto') // back to what's on disk
+    expect(statuses.at(-1)).toEqual({ name: 'a.md', dirty: false })
+
+    typeContent('saved by hand')
+    expect(ctrlS().defaultPrevented).toBe(true)
+    await vi.waitFor(() => expect(d['a.md'].content).toBe('saved by hand'))
+    expect(statuses.at(-1)).toEqual({ name: 'a.md', dirty: false })
+    expect(asked).toEqual([])
+
+    // Next start: still manual.
+    await startNotes(root(), host)
+    expect(autoSaveBox().checked).toBe(false)
+  })
+
+  it('leaving a file with unsaved changes asks: cancel stays, "don\'t save" drops them, save writes them', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B', modifiedAt: 1 } }
+    const e: Folder = { 'e.md': { content: 'E', modifiedAt: 1 } }
+    const { host, state } = fakeHost({ D: d, E: e }, { folderHandle: handle('D'), autoSave: false })
+    await startNotes(root(), host)
+    row('a.md').click()
+    await settle()
+    typeContent('A edited')
+
+    answers = ['cancel']
+    row('b.md').click()
+    await settle()
+    expect(asked).toEqual(['「a.md」への変更を保存しますか？'])
+    expect(content()).toBe('A edited')
+    expect($<HTMLInputElement>('#title').value).toBe('a')
+
+    row('a.md').click() // the open file itself: not read again, nothing asked
+    await settle()
+    expect(asked).toHaveLength(1)
+    expect(content()).toBe('A edited')
+
+    answers = ['cancel'] // a new note: none made
+    $<HTMLButtonElement>('#new-note').click()
+    await settle()
+    expect(names(d)).toEqual(['a.md', 'b.md'])
+
+    answers = ['cancel'] // another folder: the bar goes back to this one
+    state.changeFolder(handle('E'))
+    await vi.waitFor(() => expect(asked).toHaveLength(3))
+    await settle()
+    expect(state.bar).toEqual(handle('D'))
+    expect(content()).toBe('A edited')
+
+    answers = ['discard']
+    row('b.md').click()
+    await vi.waitFor(() => expect(content()).toBe('B'))
+    expect(d['a.md']).toEqual({ content: 'A', modifiedAt: 1 })
+
+    typeContent('B edited')
+    answers = ['save']
+    row('a.md').click()
+    await vi.waitFor(() => expect(content()).toBe('A'))
+    expect(d['b.md'].content).toBe('B edited')
+    expect(asked).toHaveLength(5)
+
+    row('b.md').click() // nothing unsaved: nothing asked
+    await vi.waitFor(() => expect(content()).toBe('B edited'))
+    expect(asked).toHaveLength(5)
+  })
+
+  it("without window.askSave (Brighterm): confirm, OK = save, Cancel = don't save", async () => {
+    delete window.askSave
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D'), autoSave: false })
+    await startNotes(root(), host)
+    row('a.md').click()
+    await settle()
+    typeContent('A edited')
+    acceptConfirm = true
+    row('b.md').click()
+    await vi.waitFor(() => expect(content()).toBe('B'))
+    expect(dialogs).toEqual(['「a.md」への変更を保存しますか？\n\nOK = 保存 / キャンセル = 保存しない'])
+    expect(d['a.md'].content).toBe('A edited')
+
+    typeContent('B edited')
+    acceptConfirm = false
+    row('a.md').click()
+    await vi.waitFor(() => expect(content()).toBe('A edited'))
+    expect(d['b.md'].content).toBe('B')
+  })
+
+  it('a rename keeps the changes unsaved; switching to auto saves them; closing asks', async () => {
+    const d: Folder = { 'a.md': { content: 'A\r\nline', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D'), autoSave: false })
+    const statuses: NotesStatus[] = []
+    const notes = await startNotes(root(), host, { onStatus: (s) => statuses.push(s) })
+    expect(await notes.beforeClose()).toBe(true) // nothing open
+    row('a.md').click()
+    await settle()
+    typeContent('changed')
+
+    const title = $<HTMLInputElement>('#title')
+    title.value = 'renamed'
+    title.dispatchEvent(new Event('change'))
+    await vi.waitFor(() => expect(names(d)).toEqual(['renamed.md']))
+    expect(d['renamed.md'].content).toBe('A\r\nline') // the file as it was, line endings too
+    expect(content()).toBe('changed')
+    expect(statuses.at(-1)).toEqual({ name: 'renamed.md', dirty: true })
+
+    answers = ['cancel']
+    expect(await notes.beforeClose()).toBe(false)
+    expect(asked).toEqual(['「renamed.md」への変更を保存しますか？'])
+    answers = ['discard']
+    expect(await notes.beforeClose()).toBe(true)
+    expect(d['renamed.md'].content).toBe('A\r\nline')
+
+    toggleAutoSave(true)
+    await vi.waitFor(() => expect(d['renamed.md'].content).toBe('changed'))
+    expect(statuses.at(-1)).toEqual({ name: 'renamed.md', dirty: false })
+    typeContent('last words')
+    expect(await notes.beforeClose()).toBe(true) // auto: saved at once, nothing asked
+    expect(d['renamed.md'].content).toBe('last words')
+    expect(asked).toHaveLength(2)
+  })
+
+  it('no file open: typed text is unsaved until Ctrl+S makes it a note named after the title', async () => {
+    const empty: Folder = {}
+    const { host, state } = fakeHost({ E: empty }, { autoSave: false })
+    const statuses: NotesStatus[] = []
+    await startNotes(root(), host, { onStatus: (s) => statuses.push(s) })
+    state.changeFolder(handle('E'))
+    await vi.waitFor(() => expect($('#notes-screen').hidden).toBe(false))
+    const title = $<HTMLInputElement>('#title')
+    title.value = '買い物'
+    title.dispatchEvent(new Event('change'))
+    typeContent('牛乳')
+    expect(statuses.at(-1)).toEqual({ name: null, dirty: true })
+    await sleep(600)
+    expect(names(empty)).toEqual([])
+    ctrlS()
+    await vi.waitFor(() => expect(names(empty)).toEqual(['買い物.md']))
+    expect(empty['買い物.md'].content).toBe('牛乳')
+    expect(statuses.at(-1)).toEqual({ name: '買い物.md', dirty: false })
   })
 })
 

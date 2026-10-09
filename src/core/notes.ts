@@ -32,12 +32,47 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 /** What the one running the UI can ask of it. */
 export interface NotesApp {
-  /** Saves what's being typed right now (the window is about to close). */
+  /** Saves what's being typed right now (auto save: the 0.4 s wait is skipped). */
   flush(): Promise<void>
+  /**
+   * The window is about to close: auto save saves what's being typed; manual save asks about unsaved changes.
+   * False = stay open (the user cancelled).
+   */
+  beforeClose(): Promise<boolean>
+}
+
+/** What's open, for the window title. */
+export interface NotesStatus {
+  /** The open file's full name; null = none (`dirty` then means text typed that's not a note yet). */
+  name: string | null
+  /** Changes not on disk — only with manual save (auto save never shows any). */
+  dirty: boolean
+}
+
+export interface NotesOptions {
+  /** Called whenever the status changes (simpletter: the window title; Brighterm has none). */
+  onStatus?(status: NotesStatus): void
+}
+
+/** The answer to "save the changes?" (manual save, leaving a file). */
+export type SaveAnswer = 'save' | 'discard' | 'cancel'
+
+declare global {
+  interface Window {
+    /** A save / don't save / cancel question (simpletter: a native dialog, standalone/dialogs.ts). */
+    askSave?: (text: string) => Promise<SaveAnswer>
+  }
+}
+
+/** "Save the changes?" — Brighterm has no 3-button dialog: there, OK = save, Cancel = don't save. */
+async function askSave(name: string): Promise<SaveAnswer> {
+  const text = `「${name}」への変更を保存しますか？`
+  if (window.askSave) return window.askSave(text)
+  return (await confirm(`${text}\n\nOK = 保存 / キャンセル = 保存しない`)) ? 'save' : 'discard'
 }
 
 /** Builds the notes UI inside `root`. Resolves once the saved folder (if any) is listed. */
-export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp> {
+export function startNotes(root: HTMLElement, host: NotesHost, options: NotesOptions = {}): Promise<NotesApp> {
   root.innerHTML = NOTES_MARKUP
 
   const pickerScreen = $('picker-screen')
@@ -49,8 +84,10 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   // Markdown notes: live preview (markup shows only where the cursor is); other files: plain text.
   const editor = createEditor($('content'), () => {
     edits++
-    scheduleSave()
+    if (autoSave) scheduleSave()
+    else updateStatus()
   })
+  const autoSaveBox = $<HTMLInputElement>('autosave')
   const sortSelect = $<HTMLSelectElement>('sort')
   const toggleSidebarBtn = $<HTMLButtonElement>('toggle-sidebar')
   const sidebarBackdrop = $('sidebar-backdrop')
@@ -93,6 +130,9 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     if (mod && key === 'f') {
       e.preventDefault()
       focusFileFilter()
+    } else if (mod && key === 's') {
+      e.preventDefault() // the WebView's "save page"
+      if (!e.repeat && !notesScreen.hidden) saveNow().catch((err) => alert(errorText(err)))
     } else if (e.key === 'F3' || (mod && key === 'g')) {
       e.preventDefault() // the WebView's find next / previous
     }
@@ -128,6 +168,9 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   let edits = 0
   // A file opened from outside that isn't listed otherwise (a .bak, .xml, ...: not `isListed`); listed alongside the notes.
   let extraFile: string | null = null
+  // Auto save (0.4 s after typing stops) or manual (Ctrl+S; asked before leaving a file). Remembered in storage.
+  let autoSave = true
+  let lastStatus: NotesStatus | null = null
 
   /** The open folder — every file action needs one (the notes screen only shows with a folder). */
   function folder(): FolderHandle {
@@ -139,6 +182,9 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     const savedOrder = await host.storage.get('sortOrder')
     if (isSortOrder(savedOrder)) sortOrder = savedOrder
     sortSelect.value = sortOrder
+    autoSave = (await host.storage.get('autoSave')) !== false
+    autoSaveBox.checked = autoSave
+    updateStatus()
     folderHandle = await host.storage.get<FolderHandle>('folderHandle')
     if (folderHandle) {
       try {
@@ -173,6 +219,41 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     if (cancelSave()) await saveCurrent()
   }
 
+  /** Ctrl+S: saves now (either mode). */
+  async function saveNow(): Promise<void> {
+    cancelSave()
+    await saveCurrent()
+  }
+
+  /** Manual save: the editor has text that isn't on disk. */
+  function isDirty(): boolean {
+    return !autoSave && !editor.hasValue(savedText)
+  }
+
+  /** Tells `options.onStatus` what's open — only when that changed (it's checked after every keystroke). */
+  function updateStatus(): void {
+    const status: NotesStatus = { name: currentFile, dirty: isDirty() }
+    if (lastStatus && lastStatus.name === status.name && lastStatus.dirty === status.dirty) return
+    lastStatus = status
+    options.onStatus?.(status)
+  }
+
+  /**
+   * Before the open file makes way for another one (or another folder): auto save saves what's being typed;
+   * manual save asks about unsaved changes — save / don't save / cancel. False = stay (cancelled).
+   */
+  async function leaveCurrent(): Promise<boolean> {
+    if (autoSave) {
+      await flushSave()
+      return true
+    }
+    if (!isDirty()) return true
+    const answer = await askSave(currentFile ?? '無題')
+    if (answer === 'cancel') return false
+    if (answer === 'save') await saveCurrent()
+    return true
+  }
+
   /** No note open: empty title and editor; a note still being read isn't shown. */
   function closeNote(): void {
     openRequest++
@@ -180,9 +261,10 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     titleInput.value = ''
     editor.setValue('', 'markdown')
     savedText = ''
+    updateStatus()
   }
 
-  /** Makes `handle` the notes folder (remembered for next time) and lists it. */
+  /** Makes `handle` the notes folder (remembered for next time) and lists it. Call `leaveCurrent` first. */
   async function useFolder(handle: FolderHandle): Promise<void> {
     await flushSave()
     folderHandle = handle
@@ -229,6 +311,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
       row.dataset.name = file.name
       row.addEventListener('click', () => {
         closeOverlaySidebar()
+        if (file.name === currentFile && isDirty()) return // manual save: reading it again would lose the changes
         void openFile(file.name)
       })
       row.addEventListener('contextmenu', (e) => {
@@ -376,6 +459,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     if (currentFile === file.name) {
       currentFile = newName
       titleInput.value = displayName(newName)
+      updateStatus()
     }
     if (extraFile === file.name) extraFile = newName
     if (fileClipboard && fileClipboard.name === file.name) fileClipboard.name = newName
@@ -398,10 +482,12 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   /**
    * Shows note `name`. What's typed into the note shown until then is saved to *that* note first — also
    * what's typed while `name` is being read: `currentFile` only changes together with the text.
+   * Manual save: asks about unsaved changes first (and stays on cancel).
    */
   async function openFile(name: string): Promise<void> {
     const request = ++openRequest
-    await flushSave() // read after it's saved: clicking the open note itself reads what was typed
+    if (!(await leaveCurrent())) return // read after it's saved: clicking the open note itself reads what was typed
+    if (request !== openRequest) return // another note was clicked meanwhile
     const editsBefore = edits
     const content = await host.fs.readFile(folder(), name)
     if (request !== openRequest) return // another note (or folder) was opened meanwhile
@@ -423,11 +509,13 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     editor.setValue(content, fileKind(name))
     savedText = editor.getValue()
     renderFileList()
+    updateStatus()
     return saving
   }
 
   newNoteBtn.addEventListener('click', async () => {
     closeOverlaySidebar()
+    if (!(await leaveCurrent())) return
     const name = `Untitled-${Date.now()}.md`
     await host.fs.writeFile(folder(), name, '')
     const saving = show(name, '') // empty: nothing to read
@@ -466,11 +554,12 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   async function write(name: string, text: string): Promise<void> {
     await host.fs.writeFile(folder(), name, text)
     if (currentFile === name) savedText = text
+    updateStatus()
   }
 
   async function renameCurrent(): Promise<void> {
     if (!currentFile) {
-      await saveCurrent()
+      if (autoSave) await saveCurrent() // manual save: the title is used by Ctrl+S
       return
     }
     const title = safeTitle(titleInput.value)
@@ -488,13 +577,16 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
       alert(refused)
       return
     }
-    const content = editor.getValue()
+    // Auto save: the text as typed (saved with the move). Manual: the file as it is — unsaved changes stay unsaved.
+    const typed = autoSave
+    const content = typed ? editor.getValue() : await host.fs.readFile(folder(), oldName)
     await moveFile(oldName, newName, content)
     // Still the note shown (the change event comes on blur — e.g. a click on another note, read meanwhile).
     if (currentFile === oldName) {
-      savedText = content
+      if (typed) savedText = content
       currentFile = newName
       titleInput.value = displayName(newName) // as it was made safe ("CON" → "_CON")
+      updateStatus()
     }
     if (extraFile === oldName) extraFile = newName
     await refreshFileList()
@@ -502,11 +594,24 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
 
   titleInput.addEventListener('change', () => void renameCurrent())
 
+  // Auto ↔ manual. To auto: what isn't saved yet is saved now. To manual: a save still waiting is done first.
+  autoSaveBox.addEventListener('change', async () => {
+    autoSave = autoSaveBox.checked
+    await host.storage.set('autoSave', autoSave)
+    updateStatus()
+    if (autoSave) await saveNow()
+    else await flushSave()
+  })
+
   const ready = init()
 
   // Another folder typed into the folder bar: open its first note, or leave the editor ready — typing creates one.
   host.fs.onFolderBarChange(async (handle) => {
     await ready
+    if (!(await leaveCurrent())) {
+      await host.fs.showFolderBar(folderHandle) // stayed: the bar shows the folder still open
+      return
+    }
     extraFile = null
     await useFolder(handle)
     if (files.length > 0) await openFile(files[0].name)
@@ -516,11 +621,20 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   // "Open in Notes" from outside (Brighterm's Files tile): switch to that file's folder and open it.
   host.onOpenFile(async ({ folder, name }) => {
     await ready
+    if (!(await leaveCurrent())) return
     extraFile = isListed(name) ? null : name
     await useFolder(folder)
     await openFile(name)
     editor.focus()
   })
 
-  return ready.then(() => ({ flush: flushSave }))
+  async function beforeClose(): Promise<boolean> {
+    if (autoSave) {
+      await flushSave()
+      return true
+    }
+    return leaveCurrent()
+  }
+
+  return ready.then(() => ({ flush: flushSave, beforeClose }))
 }

@@ -90,6 +90,19 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   `markup.ts` = the HTML (was `index.html`). `errorText.ts` = the one `err → message` (also used by standalone).
   `notes.ts`: `closeNote()` (no note open, a pending read dropped) and `cancelSave()` are the only places that
   do that — use them rather than resetting `currentFile` / the timer by hand.
+  **Save mode (2026-10-09, user's request):** `#autosave` check box right of the title field (storage `autoSave`,
+  default on = as before). Ctrl+S saves in both modes (document `keydown`). Manual: edits only `updateStatus()`;
+  `isDirty()` = editor ≠ `savedText` (`editor.hasValue`: length first — runs per keystroke); **every way of
+  leaving the file** (row click, ＋ 新規, folder bar — cancel puts the bar back —, `onOpenFile`, window close via
+  `beforeClose()`) goes through `leaveCurrent()` = `flushSave()` in auto, else `askSave` → save / discard / cancel.
+  `useFolder` doesn't ask: callers do (after "discard" the editor still holds the text). Clicking the open file while
+  dirty does nothing (a re-read would drop the changes). Title-field rename in manual moves the file **as on disk**
+  (read, not the editor text), changes stay unsaved; menu rename / paste read from disk anyway. To auto: saves at once.
+  `askSave` = `window.askSave` (standalone `dialogs.ts`: plugin `message` with yes/no/cancel labels → it returns the
+  label; Esc = "Cancel") or, in Brighterm, `confirm` (OK = save, Cancel = don't save). `startNotes(root, host,
+  { onStatus })` reports `{ name, dirty }` (only on change; auto is never dirty — user's choice) → `main.ts` sets
+  the window title `memo.md - simpletter` / `*memo.md - simpletter` / `*無題 - simpletter` / `simpletter`
+  (`core:window:allow-set-title`). Brighterm passes no `onStatus`.
   `editor.ts` = the text editor (CodeMirror 6) in `#content`: `.md` → `markdownLanguage` (GFM) + live
   preview + list continuation (`insertNewlineContinueMarkup`), `.csv`/`.tsv` → the table view (no line
   wrapping: scrolls sideways; Tab = the delimiter, `insertDelimiter`), anything else → plain mono text. Opening a
@@ -348,6 +361,11 @@ over it, `.md` double-click, uninstall. User-visible → part of the next (minor
 Done (2026-10-09): Ctrl+F searches the whole note (user report: text off screen wasn't found) — CodeMirror's
 search / replace panel, see Architecture. Tests: Vitest 105 (search 3), e2e 15. Checked by hand by the user
 (2026-10-09): OK (the WebView's find bar never shows — CDP can't see it). User-visible (replace is new) → part of the next (minor) release.
+
+Done (2026-10-09): auto / manual save switch + window title `<file> - simpletter`, `*` while unsaved (user's request;
+choices: check box by the title, default auto, leaving asks save / don't save / cancel, no `*` in auto mode, full file
+name) — see Architecture. Tests: Vitest 111 (manual save 5, dialogs 3), e2e 16 (closing with cancel = the test kills
+the window, +5 s). Not yet checked by hand: the real 3-button dialog. User-visible → part of the next (minor) release.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).
