@@ -20,6 +20,11 @@
     "targets": ["nsis"],
     "publisher": "purewhite404",
     "copyright": "Copyright (c) 2026 purewhite404",
+    "windows": {
+      "nsis": {
+        "template": "nsis/installer.nsi"
+      }
+    },
     "fileAssociations": [
       {
         "ext": ["md", "markdown"],
