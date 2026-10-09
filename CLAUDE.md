@@ -5,12 +5,15 @@ renamed. Split out of Brighterm (`../brighterm`, its `plugins-builtin/notes/`) o
 because the user edits lots of one-off `.md` files and wanted something light. **Notes is
 developed here from now on**; Brighterm's copy stays as it was until the user decides how to
 bring it back (`npm run build:brighterm`). User-facing docs: `README.md` (Japanese).
+**README style (user's request, 2026-10-09):** only what a user can't guess (keys, limits like UTF-8 only, setup).
+No behaviour that's obvious from using it, no "why it's better than a naive design", no OS how-tos, no
+per-version migration notes, never the user's real name / account folder.
 Talk to the user in Japanese. Commit messages in English (user's request, 2026-10-09).
 
 **Identity (user's request, 2026-10-09):** published as **purewhite404** — no real name anywhere (LICENSE,
 `Cargo.toml` authors, `tauri.conf.json` `bundle.publisher` / `copyright`, test paths use `me`). Identifier
 `com.purewhite404.simpletter` since 0.3.0 (was `com.satoshi.simpletter`: the WebView2 profile = localStorage moved
-with it; the user chose not to migrate — last folder / sort order reset once, README says so). Commits: repo-local
+with it; the user chose not to migrate — last folder / sort order reset once; said in the v0.3.0 release notes only). Commits: repo-local
 `git config` user.name `purewhite404`, email `61584839+purewhite404@users.noreply.github.com` — keep it. The whole
 history was rewritten to that on 2026-10-09 (`git filter-repo` mailmap + replace-text; backup bundle in
 `..\simpletter-backup-2026-10-09.bundle`); old versions keep `com.satoshi.simpletter` as the identifier they had.
@@ -240,7 +243,7 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - `view.setState` resets the focus flag of the live preview: `editor.setValue` re-sends `focusEffect(true)`
   when the view still has focus.
 - File associations only exist in the installed (NSIS) build, and Windows 10/11 won't let an installer
-  become the default app if the user already chose one for `.md` (README explains「プログラムから開く」).
+  become the default app if the user already chose one for `.md` (「プログラムから開く」→ 常に使う). Dev mode has no association: `npx.cmd tauri dev -- -- C:\path\note.md`.
 - The window is created in `lib.rs` (`app.windows` is empty in `tauri.conf.json`) so tests can set
   profile/args; the capability still targets the label `main`.
 
