@@ -1,7 +1,6 @@
 // The note's text editor (CodeMirror 6). Markdown notes get the live preview
 // (livePreview.ts) and list continuation on Enter; CSV / TSV files show as a table
-// (csvPreview.ts); any other file opened from outside (.txt, .log, …) is plain
-// monospace text, as before.
+// (csvPreview.ts); any other file (.txt, .log, .yaml, …) is plain monospace text.
 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { indentUnit, LanguageSupport } from '@codemirror/language'

@@ -21,9 +21,11 @@ const KINDS = new Map<string, FileKind>([
   ['tsv', 'tsv']
 ])
 
+/** "a.Tar.GZ" → "gz"; "" without a dot. */
+const extension = (name: string): string => /\.([^.]*)$/.exec(name.toLowerCase())?.[1] ?? ''
+
 export function fileKind(name: string): FileKind {
-  const ext = /\.([^.]*)$/.exec(name.toLowerCase())?.[1] ?? ''
-  return KINDS.get(ext) ?? 'plain'
+  return KINDS.get(extension(name)) ?? 'plain'
 }
 
 /** A note: .md, or .markdown (the other extension the installer associates). */
@@ -34,8 +36,14 @@ const NOTE_EXTENSION = /\.(md|markdown)$/i
 /** The extension a note renamed to another title keeps: ".markdown" stays, anything else is ".md". */
 export const noteExtension = (name: string): string => (/\.markdown$/i.test(name) ? '.markdown' : '.md')
 
-/** Notes and tables are listed whenever they're in the folder; other files only once opened from outside. */
-export const isListed = (name: string): boolean => fileKind(name) !== 'plain'
+/** Text files shown as plain text but listed like the notes. */
+const TEXT_EXTENSIONS = new Set(['txt', 'log', 'ini', 'cfg', 'conf', 'yaml', 'yml', 'json', 'toml'])
+
+/**
+ * Listed whenever they're in the folder: notes, tables and the text files above — the same extensions the installer
+ * associates (src-tauri/tauri.conf.json, checked by names.test.ts). Other files only once opened from outside.
+ */
+export const isListed = (name: string): boolean => fileKind(name) !== 'plain' || TEXT_EXTENSIONS.has(extension(name))
 
 /**
  * A name without ".md" / ".markdown" (other files keep their full name): the title field, the rename box and
@@ -102,7 +110,7 @@ const EXECUTABLE = new Set(
   )
 )
 
-export const isExecutable = (name: string): boolean => EXECUTABLE.has(/\.([^.]*)$/.exec(name.toLowerCase())?.[1] ?? '')
+export const isExecutable = (name: string): boolean => EXECUTABLE.has(extension(name))
 
 /** Why a file can't get `name` (same text as the native side's). */
 export const executableMessage = (name: string): string => `実行できる種類のファイルは新しく作れません: ${name}`

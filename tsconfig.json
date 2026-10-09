@@ -8,6 +8,7 @@
     /* Bundler mode */
     "moduleResolution": "bundler",
     "isolatedModules": true,
+    "resolveJsonModule": true,
     "noEmit": true,
 
     /* Linting */

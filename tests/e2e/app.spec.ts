@@ -144,7 +144,7 @@ test('a folder typed into the bar lists its notes; typing saves to disk', async 
   const dir = tempDir('simpletter-notes-')
   writeFileSync(join(dir, 'b.md'), 'note B')
   writeFileSync(join(dir, 'a.md'), 'note A')
-  writeFileSync(join(dir, 'skip.txt'), 'not a note')
+  writeFileSync(join(dir, 'skip.bak'), 'not listed')
   const app = await launch()
   try {
     await expect(app.page.locator('#picker-screen')).toBeVisible()
@@ -195,7 +195,7 @@ test('a file given on the command line (a double-click in Explorer) opens in its
   writeFileSync(join(other, 'elsewhere.md'), 'elsewhere')
   writeFileSync(join(dir, 'a.md'), '# A')
   writeFileSync(join(dir, '日本語 メモ.md'), 'opened from Explorer')
-  writeFileSync(join(dir, 'log.txt'), 'a text file')
+  writeFileSync(join(dir, 'old.bak'), 'a backup')
   let app = await launch(profile)
   try {
     await typeFolder(app.page, other) // a folder remembered from before
@@ -209,11 +209,11 @@ test('a file given on the command line (a double-click in Explorer) opens in its
     await expect(app.page.locator('.file-row--active')).toHaveText('日本語 メモ.md')
     await app.close()
 
-    // Not a note: opened and listed alongside the notes (like Brighterm's "Open in Notes").
-    app = await launch(profile, [join(dir, 'log.txt')])
-    await expect(editor(app.page)).toHaveText('a text file')
+    // Not listed otherwise: opened and listed alongside the notes (like Brighterm's "Open in Notes").
+    app = await launch(profile, [join(dir, 'old.bak')])
+    await expect(editor(app.page)).toHaveText('a backup')
     await expect(app.page.locator('#content .cm-plain')).toBeVisible() // not a note: plain text
-    await expect(rows(app.page)).toHaveText(['a.md', 'log.txt', '日本語 メモ.md'])
+    await expect(rows(app.page)).toHaveText(['a.md', 'old.bak', '日本語 メモ.md'])
     await app.close()
 
     // A file that's gone: the error bar says so, the remembered folder stays.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import tauriConf from '../../src-tauri/tauri.conf.json'
 import {
   displayName,
   fileKind,
@@ -35,11 +36,25 @@ describe('displayName', () => {
 })
 
 describe('fileKind', () => {
-  it('notes, tables (CSV / TSV, any case) and the rest; notes and tables are listed', () => {
+  it('notes, tables (CSV / TSV, any case) and the rest', () => {
     expect(
       ['a.md', 'f.Markdown', 'b.CSV', 'c.tsv', 'd.txt', 'csv', 'e.csv.bak', 'g.constructor'].map(fileKind)
     ).toEqual(['markdown', 'markdown', 'csv', 'tsv', 'plain', 'plain', 'plain', 'plain'])
-    expect(['a.md', 'b.csv', 'c.TSV', 'd.txt'].map(isListed)).toEqual([true, true, true, false])
+  })
+
+  it('notes, tables and text / config files are listed; other files are not', () => {
+    const listed = ['a.md', 'b.csv', 'c.TSV', 'd.txt', 'app.LOG', 'x.ini', 'y.yml', 'package.json', 'Cargo.toml']
+    expect(listed.filter(isListed)).toEqual(listed)
+    expect(['x.bak', 'build.bat', 'txt', 'a.txt.bak', 'g.constructor'].filter(isListed)).toEqual([])
+  })
+
+  it('the installer associates exactly the listed extensions', () => {
+    const associated = tauriConf.bundle.fileAssociations.flatMap((a) => a.ext)
+    expect(associated.filter((ext) => !isListed(`a.${ext}`))).toEqual([])
+    expect(new Set(associated).size).toBe(associated.length)
+    expect([...associated].sort()).toEqual(
+      ['md', 'markdown', 'csv', 'tsv', 'txt', 'log', 'ini', 'cfg', 'conf', 'yaml', 'yml', 'json', 'toml'].sort()
+    )
   })
 })
 

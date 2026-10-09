@@ -103,7 +103,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   let openRequest = 0
   // Counts the edits (to tell whether anything was typed while a note was being read).
   let edits = 0
-  // A file opened from outside that isn't listed otherwise (a .txt, .log, config file...); listed alongside the notes.
+  // A file opened from outside that isn't listed otherwise (a .bak, .xml, ...: not `isListed`); listed alongside the notes.
   let extraFile: string | null = null
 
   /** The open folder — every file action needs one (the notes screen only shows with a folder). */

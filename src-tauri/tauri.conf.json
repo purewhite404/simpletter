@@ -34,6 +34,48 @@
         "description": "CSV / TSV",
         "role": "Editor",
         "mimeType": "text/csv"
+      },
+      {
+        "ext": ["txt"],
+        "name": "simpletter.text",
+        "description": "テキスト ドキュメント",
+        "role": "Editor",
+        "mimeType": "text/plain"
+      },
+      {
+        "ext": ["log"],
+        "name": "simpletter.log",
+        "description": "ログ ファイル",
+        "role": "Editor",
+        "mimeType": "text/plain"
+      },
+      {
+        "ext": ["ini", "cfg", "conf"],
+        "name": "simpletter.config",
+        "description": "構成設定",
+        "role": "Editor",
+        "mimeType": "text/plain"
+      },
+      {
+        "ext": ["yaml", "yml"],
+        "name": "simpletter.yaml",
+        "description": "YAML ファイル",
+        "role": "Editor",
+        "mimeType": "application/yaml"
+      },
+      {
+        "ext": ["json"],
+        "name": "simpletter.json",
+        "description": "JSON ファイル",
+        "role": "Editor",
+        "mimeType": "application/json"
+      },
+      {
+        "ext": ["toml"],
+        "name": "simpletter.toml",
+        "description": "TOML ファイル",
+        "role": "Editor",
+        "mimeType": "application/toml"
       }
     ],
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]

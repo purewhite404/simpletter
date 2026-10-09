@@ -142,12 +142,12 @@ describe('folder', () => {
     const a: Folder = {
       'b.md': { content: 'B', modifiedAt: 1 },
       'a.md': { content: 'A', modifiedAt: 2 },
-      'x.txt': { content: '', modifiedAt: 1 }
+      'x.bak': { content: '', modifiedAt: 1 }
     }
     let s = fakeHost({ A: a }, { folderHandle: handle('A') })
     await startNotes(root(), s.host)
     expect($('#notes-screen').hidden).toBe(false)
-    expect(rows()).toEqual(['a.md', 'b.md']) // only .md, shown with the extension
+    expect(rows()).toEqual(['a.md', 'b.md']) // not the .bak; shown with the extension
     expect(s.state.bar).toEqual(handle('A'))
 
     s = fakeHost({}, { folderHandle: handle('gone') })
@@ -427,6 +427,25 @@ describe('editor', () => {
     expect(dir['log.txt'].modifiedAt).toBe(1)
   })
 
+  it('text and config files are listed as plain text; other files only once opened from outside', async () => {
+    const dir: Folder = {
+      'a.md': { content: '', modifiedAt: 1 },
+      'app.log': { content: 'started', modifiedAt: 1 },
+      'config.yaml': { content: 'a: 1', modifiedAt: 1 },
+      'old.bak': { content: 'kept', modifiedAt: 1 }
+    }
+    const { host, state } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    expect(rows()).toEqual(['a.md', 'app.log', 'config.yaml'])
+    row('config.yaml').click()
+    await vi.waitFor(() => expect(content()).toBe('a: 1'))
+    expect($('#content .cm-editor').classList.contains('cm-plain')).toBe(true)
+
+    state.openFile({ folder: handle('D'), name: 'old.bak' })
+    await vi.waitFor(() => expect(content()).toBe('kept'))
+    expect(rows()).toEqual(['a.md', 'app.log', 'config.yaml', 'old.bak'])
+  })
+
   it('a table shows as a <table>; a click on a cell puts the cursor in its source text', async () => {
     const text = '# 表\n\n| 品物 | 数 |\n|:--|--:|\n| **りんご** | 3 |\n|  | 5 |\n'
     const dir: Folder = { 't.md': { content: text, modifiedAt: 1 } }
@@ -464,7 +483,7 @@ describe('editor', () => {
       'a.md': { content: '', modifiedAt: 1 },
       'data.csv': { content: csv, modifiedAt: 1 },
       't.TSV': { content: 'x\ty', modifiedAt: 1 },
-      'x.txt': { content: '', modifiedAt: 1 }
+      'x.bak': { content: '', modifiedAt: 1 }
     }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
@@ -506,7 +525,7 @@ describe('editor', () => {
   })
 
   it('.markdown files are notes: listed, live preview, renamed with their own extension', async () => {
-    const dir: Folder = { 'old.markdown': { content: '# H', modifiedAt: 1 }, 'x.txt': { content: '', modifiedAt: 1 } }
+    const dir: Folder = { 'old.markdown': { content: '# H', modifiedAt: 1 }, 'x.bak': { content: '', modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
     expect(rows()).toEqual(['old.markdown']) // the list shows the extension, the title field doesn't
@@ -518,13 +537,13 @@ describe('editor', () => {
 
     title.value = 'by title'
     title.dispatchEvent(new Event('change'))
-    await vi.waitFor(() => expect(names(dir)).toEqual(['by title.markdown', 'x.txt']))
+    await vi.waitFor(() => expect(names(dir)).toEqual(['by title.markdown', 'x.bak']))
 
     await menuItem('by title.markdown', '名前の変更')
     const box = $<HTMLInputElement>('.file-rename')
     box.value = 'by menu'
     box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
-    await vi.waitFor(() => expect(names(dir)).toEqual(['by menu.markdown', 'x.txt']))
+    await vi.waitFor(() => expect(names(dir)).toEqual(['by menu.markdown', 'x.bak']))
     expect(dir['by menu.markdown'].content).toBe('# H')
     expect(title.value).toBe('by menu')
   })

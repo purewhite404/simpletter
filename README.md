@@ -1,12 +1,15 @@
 # simpletter
 
-フォルダの中の `.md` / `.csv` / `.tsv` を一覧・編集するメモ帳です（Windows、Tauri 2）。
+フォルダの中の `.md` / `.csv` / `.txt` などを一覧・編集するメモ帳です（Windows、Tauri 2）。
 [Brighterm](../brighterm) の Notes を切り出したもので、同じコードが Brighterm のプラグインとしても動きます。
 
 ## インストール
 
 [Releases](https://github.com/purewhite404/simpletter/releases) の `simpletter_x.y.z_x64-setup.exe` を実行します。
 SmartScreen が出たら「詳細情報」→「実行」。
+
+次の拡張子に関連付け、フォルダの一覧にも出します: `.md` `.markdown` `.csv` `.tsv` `.txt` `.log` `.ini` `.cfg` `.conf`
+`.yaml` `.yml` `.json` `.toml`。それ以外は外から開いたときだけ一覧に加わります。
 
 ## 使い方
 

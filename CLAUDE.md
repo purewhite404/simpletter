@@ -83,7 +83,8 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   only to a `NotesHost` (`host.ts`) = the subset of Brighterm's `window.brighterm` Host API that
   Notes uses, **same shape**. Keep it that way: it's what lets the same code be Brighterm's plugin.
   `names.ts` = pure naming/sorting helpers, `fileKind` (md + markdown / csv / tsv / plain, a `Map` lookup;
-  `isListed` = all but plain); a renamed note keeps `.markdown` (`noteExtension`), anything else becomes `.md`.
+  `isListed` = all but plain + `TEXT_EXTENSIONS` txt log ini cfg conf yaml yml json toml = exactly the associated
+  extensions, `names.test.ts` checks it against `tauri.conf.json`); a renamed note keeps `.markdown` (`noteExtension`), anything else becomes `.md`.
   The file list shows full names (user's request, 2026-10-09); `displayName` (no `.md` / `.markdown`) is only for
   the title field, the rename box and the sort order.
   `markup.ts` = the HTML (was `index.html`). `errorText.ts` = the one `err → message` (also used by standalone).
@@ -161,7 +162,11 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   `open_file.rs` (launch args → the file to open; path → folder + name).
 - **Opening a file from outside** (`.md` double-click): `tauri.conf.json` `bundle.fileAssociations`
   (md, markdown; ProgID `simpletter.markdown` — NSIS uses `name` as the class key, so not a generic name;
-  csv, tsv → `simpletter.table`)
+  csv, tsv → `simpletter.table`; txt → `.text`, log → `.log`, ini cfg conf → `.config`, yaml yml → `.yaml`,
+  json → `.json`, toml → `.toml`; one ProgID per `description` = Windows's own type names, e.g. 「テキスト ドキュメント」,
+  because Tauri's NSIS sets `HKCU\Software\Classes\.ext`'s default to our ProgID (old one kept as
+  `<ProgID>_backup`, restored on uninstall): Explorer's 種類 column / 新規作成 may show our description even when
+  another app is the default)
   → Explorer runs `simpletter.exe "<path>"`. `run()` keeps argv's file in `InitialFile`; the UI pulls it
   once with `initial_file` (pull, so no race with the listener). A later launch goes through
   `tauri-plugin-single-instance` → `open-file` event (the path) + window to the front. Either way the UI
@@ -312,6 +317,12 @@ Done (2026-10-09): security review (see Gotchas: Security model) — name checks
 stricter CSP, `list_files` wants an absolute path; also fixed: a title-field rename finishing after another note
 was opened no longer makes that note's saves go to the renamed file. Tests: Rust 19, Vitest 99, e2e 14.
 User-visible (refused names, `_CON`) → the next release is at least a **patch** (minor already due, see above).
+
+Done (2026-10-09): associations + always listed (user's request / choice): txt, log, ini, cfg, conf, yaml, yml, json,
+toml besides md / markdown / csv / tsv (13); shown as plain text; other files still only listed once opened from
+outside (`extraFile`; tests now use `.bak` for those). Brighterm's Notes would list them too. Tests: Vitest 102,
+e2e 14; the generated `installer.nsi` has the 13 `APP_ASSOCIATE` lines. Next release: **minor** (was due anyway).
+Not yet checked by hand: the installed build's double-click for the new types.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).
