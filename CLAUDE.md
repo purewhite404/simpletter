@@ -100,6 +100,9 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   runs CM fine). e2e: `editor(page)` = `#content .cm-content` — `fill`/`toHaveText`; the source text with
   markup is checked on disk (the screen hides marks off the cursor line). Don't reach for CM internals
   (`cmView` became `Tile` in 6.4x).
+- Vitest's table-click test prints "Calls to EditorView.update are not allowed while an update is in progress"
+  (stderr, caught by CM, test passes): happy-dom fires `selectionchange` synchronously when CM writes the
+  DOM selection. Not in WebView2 — checked 2026-10-09 with `page.on('console')`: no errors/warnings.
 - `view.setState` resets the focus flag of the live preview: `editor.setValue` re-sends `focusEffect(true)`
   when the view still has focus.
 - File associations only exist in the installed (NSIS) build, and Windows 10/11 won't let an installer
