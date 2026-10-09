@@ -165,7 +165,13 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - **`tauri-plugin-dialog` replaces `window.alert` / `window.confirm`** with async versions
   (`init-iife.js`): `confirm()` returns a Promise. `if (!confirm(…))` was always false → delete without
   asking. The core `await`s it (works with Brighterm's sync confirm too). They need the
-  `dialog:allow-message` / `dialog:allow-confirm` permissions, else nothing shows.
+  `dialog:allow-message` permission, else nothing shows.
+  **Since plugin 2.7 its `window.confirm` is broken** (user report 2026-10-09: delete from the menu →
+  "Command plugin:dialog|confirm not allowed by ACL"): it still invokes `plugin:dialog|confirm`, but the Rust
+  side only has `open` / `save` / `message` (`allow-confirm` is just an alias of `allow-message`) — no capability
+  fixes that. `src/standalone/dialogs.ts` (`installDialogs()`, first thing in `main.ts`) replaces alert / confirm
+  with the JS API's `message` / `confirm` (→ `plugin:dialog|message`). Also fixed the close-after-failed-save
+  confirm. e2e checks `String(window.confirm)` isn't the plugin's (fails without the fix).
 - **Native dialogs can't be seen or clicked over CDP** (and an off-screen window's dialog mustn't pop
   up on the user's screen): e2e swaps alert/confirm for async stand-ins (`stubDialogs` in helpers.ts).
 - **e2e test mode** (debug builds only, `lib.rs` `test_mode`): `SIMPLETTER_TEST_DATA_DIR` = own WebView2
@@ -255,6 +261,10 @@ Not yet checked by hand: the installed 0.2.2 opening a double-clicked `.markdown
 Done (2026-10-09): the file list shows `.md` / `.markdown` too (user's choice: the list only — title field and
 rename box stay without it; delete confirm shows the full name). Brighterm's `notes.spec.ts` would need full names
 in its row checks as well. User-visible → next release is a **minor** (while 0.x: a change the user notices).
+
+Done (2026-10-09): fix — delete from the menu (and the close-after-failed-save question) failed with an ACL error
+(see Gotchas: the dialog plugin's `window.confirm`). Tests: Vitest 96 (dialogs 2), e2e 13. Not yet checked by hand:
+the real dialog (OK / キャンセル) — CDP can't click it.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).

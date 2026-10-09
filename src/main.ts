@@ -10,6 +10,9 @@ import { startNotes } from './core/notes'
 import { FolderBar } from './standalone/folderBar'
 import { createTauriHost, pickFolder, suggestFolders } from './standalone/tauriHost'
 import { showError } from './standalone/errorBar'
+import { installDialogs } from './standalone/dialogs'
+
+installDialogs()
 
 const { host, attachFolderBar, changeFolder } = createTauriHost()
 

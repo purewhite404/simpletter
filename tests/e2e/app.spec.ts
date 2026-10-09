@@ -65,6 +65,20 @@ test('under test the window is off every display, without the focus, and still p
   }
 })
 
+// The dialog plugin's own window.confirm invokes `plugin:dialog|confirm`, a command it no longer has (ACL error
+// on delete / close). The real dialog can't be clicked over CDP, so: the app's confirm must not be that one.
+test("confirm() isn't the dialog plugin's broken stand-in", async () => {
+  const app = await launch()
+  try {
+    await expect(app.page.locator('#picker-screen')).toBeVisible() // main.ts has run
+    const confirmSource = await app.page.evaluate(() => String(window.confirm))
+    expect(confirmSource).not.toContain('plugin:dialog|confirm')
+    expect(confirmSource).not.toContain('[native code]')
+  } finally {
+    await app.close()
+  }
+})
+
 test('a folder typed into the bar lists its notes; typing saves to disk', async () => {
   const dir = tempDir('simpletter-notes-')
   writeFileSync(join(dir, 'b.md'), 'note B')
