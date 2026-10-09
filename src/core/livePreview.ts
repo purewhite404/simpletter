@@ -291,8 +291,17 @@ const hide = Decoration.replace({})
 const bullet = Decoration.replace({ widget: new BulletWidget() })
 const rule = Decoration.replace({ widget: new RuleWidget() })
 const checkbox = [false, true].map((c) => Decoration.replace({ widget: new CheckboxWidget(c) }))
-const markClass = (cls: string) => Decoration.mark({ class: cls })
-const lineClass = (cls: string) => Decoration.line({ class: cls })
+/** One decoration per class, made once (not on every rebuild, i.e. every cursor move). */
+function byClass(make: (cls: string) => Decoration): (cls: string) => Decoration {
+  const made = new Map<string, Decoration>()
+  return (cls) => {
+    let deco = made.get(cls)
+    if (!deco) made.set(cls, (deco = make(cls)))
+    return deco
+  }
+}
+const markClass = byClass((cls) => Decoration.mark({ class: cls }))
+const lineClass = byClass((cls) => Decoration.line({ class: cls }))
 
 const INLINE_STYLE: Record<string, Decoration> = {
   Emphasis: markClass('cm-lp-em'),
@@ -328,8 +337,6 @@ export function previewDecorations(state: EditorState): DecorationSet {
       pos = line.to + 1
     }
   }
-  /** The child marks of `node` called `name`. */
-  const marks = (node: SyntaxNode, name: string) => node.getChildren(name)
   /** `to` extended over the spaces right after it. */
   const spacesAfter = (to: number) => {
     let end = to
@@ -345,7 +352,7 @@ export function previewDecorations(state: EditorState): DecorationSet {
       if (heading) {
         addLines(`cm-lp-h${heading[2]}`, node.from, node.to)
         if (onLines(node.from, node.to)) return
-        for (const m of marks(node, 'HeaderMark')) {
+        for (const m of node.getChildren('HeaderMark')) {
           const line = doc.lineAt(m.from)
           if (heading[1] === 'Setext') add(hide, m.from, m.to)
           else if (m.from === line.from) add(hide, m.from, spacesAfter(m.to))
@@ -360,15 +367,13 @@ export function previewDecorations(state: EditorState): DecorationSet {
       }
       if (name in INLINE_STYLE) {
         add(INLINE_STYLE[name], node.from, node.to)
-        if (!touches(node.from, node.to)) for (const m of marks(node, INLINE_MARK[name])) add(hide, m.from, m.to)
+        if (!touches(node.from, node.to)) for (const m of node.getChildren(INLINE_MARK[name])) add(hide, m.from, m.to)
         return
       }
       switch (name) {
         case 'Link': {
-          const linkMarks = marks(node, 'LinkMark')
-          if (linkMarks.length < 2) return
-          const open = linkMarks[0]
-          const close = linkMarks[1] // the "]"
+          const [open, close] = node.getChildren('LinkMark') // close = the "]"
+          if (!close) return
           add(markClass('cm-lp-link'), open.to, close.from)
           if (!touches(node.from, node.to)) {
             add(hide, open.from, open.to)
@@ -380,7 +385,7 @@ export function previewDecorations(state: EditorState): DecorationSet {
         }
         case 'Autolink': {
           add(markClass('cm-lp-link'), node.from, node.to)
-          if (!touches(node.from, node.to)) for (const m of marks(node, 'LinkMark')) add(hide, m.from, m.to)
+          if (!touches(node.from, node.to)) for (const m of node.getChildren('LinkMark')) add(hide, m.from, m.to)
           return false
         }
         case 'URL':
@@ -436,8 +441,7 @@ export function previewDecorations(state: EditorState): DecorationSet {
           out.push(lineClass('cm-lp-codeblock-first').range(first.from))
           out.push(lineClass('cm-lp-codeblock-last').range(last.from))
           if (!onLines(node.from, node.to)) {
-            const fences = marks(node, 'CodeMark')
-            for (const m of fences) {
+            for (const m of node.getChildren('CodeMark')) {
               const line = doc.lineAt(m.from)
               add(hide, m.from, line.to) // the fence and its info string ("```js")
               out.push(lineClass('cm-lp-fence').range(line.from)) // an emptied fence line: keep it low
@@ -516,14 +520,13 @@ function enterTable(dir: 1 | -1): StateCommand {
     const n = line.number + dir
     if (n < 1 || n > state.doc.lines) return false
     const next = state.doc.line(n)
-    let target: { from: number; to: number } | null = null
+    // A table starting (↓) / ending (↑) on the next line: step into that line.
+    let table = false as boolean // set in the callback
     state.field(previewField).between(next.from, next.to, (from, to, deco) => {
-      if (!(deco.spec.widget instanceof TableWidget)) return
-      if (dir === 1 ? from === next.from : to === next.to) target = { from, to }
+      if (deco.spec.widget instanceof TableWidget && (dir === 1 ? from === next.from : to === next.to)) table = true
     })
-    if (!target) return false
-    const into = state.doc.lineAt(dir === 1 ? (target as { from: number }).from : (target as { to: number }).to)
-    const pos = into.from + Math.min(sel.head - line.from, into.length)
+    if (!table) return false
+    const pos = next.from + Math.min(sel.head - line.from, next.length)
     dispatch(state.update({ selection: EditorSelection.cursor(pos), scrollIntoView: true, userEvent: 'select' }))
     return true
   }

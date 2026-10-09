@@ -1,4 +1,4 @@
-// Notes — a small, dependency-free markdown notebook. Ported from Brighterm's
+// Notes — a small markdown notebook (the editor is CodeMirror, editor.ts). Ported from Brighterm's
 // plugins-builtin/notes/main.js: the behaviour is the same; `window.brighterm`
 // became the `host` argument so the same code runs as the simpletter app and as
 // Brighterm's Notes plugin (see host.ts).
@@ -7,6 +7,7 @@
 // (fs.showFolderBar / fs.onFolderBarChange) — no picker window needed.
 
 import { createEditor } from './editor'
+import { errorText } from './errorText'
 import type { FileEntry, FolderHandle, NotesHost } from './host'
 import { NOTES_MARKUP } from './markup'
 import {
@@ -132,23 +133,33 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     notesScreen.hidden = which !== 'notes'
   }
 
-  /** Saves what's being typed right now, before the note or the folder changes under it. */
-  async function flushSave(): Promise<void> {
-    if (!saveTimer) return
+  /** Drops a pending save; true if there was one. */
+  function cancelSave(): boolean {
+    if (!saveTimer) return false
     clearTimeout(saveTimer)
     saveTimer = null
-    await saveCurrent()
+    return true
+  }
+
+  /** Saves what's being typed right now, before the note or the folder changes under it. */
+  async function flushSave(): Promise<void> {
+    if (cancelSave()) await saveCurrent()
+  }
+
+  /** No note open: empty title and editor; a note still being read isn't shown. */
+  function closeNote(): void {
+    openRequest++
+    currentFile = null
+    titleInput.value = ''
+    editor.setValue('', 'markdown')
+    savedText = ''
   }
 
   /** Makes `handle` the notes folder (remembered for next time) and lists it. */
   async function useFolder(handle: FolderHandle): Promise<void> {
     await flushSave()
     folderHandle = handle
-    openRequest++ // a note of the old folder still being read: not shown
-    currentFile = null
-    titleInput.value = ''
-    editor.setValue('', 'markdown')
-    savedText = ''
+    closeNote()
     await host.storage.set('folderHandle', handle)
     await refreshFileList()
     await host.fs.showFolderBar(handle)
@@ -343,15 +354,8 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     // `await`: in the simpletter app, Tauri's dialog plugin makes confirm() async (a native dialog).
     if (!(await confirm(`「${displayName(file.name)}」を削除しますか？`))) return
     if (currentFile === file.name) {
-      if (saveTimer) {
-        clearTimeout(saveTimer)
-        saveTimer = null
-      }
-      openRequest++
-      currentFile = null
-      titleInput.value = ''
-      editor.setValue('', 'markdown')
-      savedText = ''
+      cancelSave()
+      closeNote()
     }
     await host.fs.deleteFile(folder(), file.name)
     if (extraFile === file.name) extraFile = null
@@ -403,7 +407,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
   searchInput.addEventListener('input', renderFileList)
 
   function scheduleSave(): void {
-    if (saveTimer) clearTimeout(saveTimer)
+    cancelSave()
     saveTimer = setTimeout(() => void saveCurrent(), 400)
   }
 
@@ -415,7 +419,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
       // Typing with no note open (e.g. a brand-new, empty folder) starts a new note.
       if (!text && !titleInput.value.trim()) return
       currentFile = newFileName(files, titleInput.value)
-      titleInput.value = currentFile.replace(/\.md$/i, '')
+      titleInput.value = displayName(currentFile)
       await write(currentFile, text)
       await refreshFileList()
       return
@@ -478,5 +482,3 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
 
   return ready.then(() => ({ flush: flushSave }))
 }
-
-const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err))

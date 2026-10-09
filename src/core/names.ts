@@ -6,7 +6,7 @@ export interface Named {
 }
 
 /** How the list is ordered (remembered in storage). */
-export const SORT_ORDERS = ['name-asc', 'name-desc', 'date-desc', 'date-asc'] as const
+const SORT_ORDERS = ['name-asc', 'name-desc', 'date-desc', 'date-asc'] as const
 export type SortOrder = (typeof SORT_ORDERS)[number]
 
 export const isSortOrder = (value: unknown): value is SortOrder => SORT_ORDERS.includes(value as SortOrder)
@@ -28,7 +28,7 @@ export const isListed = (name: string): boolean => fileKind(name) !== 'plain'
 export const displayName = (name: string): string => (isMarkdown(name) ? name.replace(/\.md$/i, '') : name)
 
 /** By the name as shown ("note 2" before "note 10", case ignored). */
-export const byName = (a: Named, b: Named): number =>
+const byName = (a: Named, b: Named): number =>
   displayName(a.name).localeCompare(displayName(b.name), 'ja', { numeric: true, sensitivity: 'base' })
 
 /** Sorts in place: by name, or by when it was last changed (ties by name). */
@@ -67,8 +67,5 @@ export const safeTitle = (title: string): string => title.trim().replace(/[\\/:*
 /** A file name for a new note, from the title if one was typed, else "メモ-2026-10-08-15-30". */
 export function newFileName(files: Named[], title: string, now: Date = new Date()): string {
   const base = safeTitle(title) || `メモ-${now.toISOString().slice(0, 16).replace(/[:T]/g, '-')}`
-  let name = `${base}.md`
-  let n = 2
-  while (nameTaken(files, name)) name = `${base} (${n++}).md`
-  return name
+  return freeName(files, `${base}.md`)
 }

@@ -13,18 +13,19 @@ import { continueList, dedentListItem, indentListItem, LIST_INDENT } from './lis
 import { focusEffect, livePreview } from './livePreview'
 import type { FileKind } from './names'
 
-export type EditorKind = FileKind
-
 export interface NoteEditor {
   getValue(): string
   /** Shows another file: new text, fresh undo history; does not count as an edit. */
-  setValue(text: string, kind: EditorKind): void
+  setValue(text: string, kind: FileKind): void
   focus(): void
 }
 
 const PLACEHOLDER = 'ここに書く…（# 見出し、**太字**、- 箇条書き、- [ ] チェックボックス）'
 
-function extensions(kind: EditorKind, onChange: () => void): Extension[] {
+/** The keys every kind of file has (after its own ones). */
+const BASE_KEYS = [...defaultKeymap, ...historyKeymap]
+
+function extensions(kind: FileKind, onChange: () => void): Extension[] {
   const base: Extension[] = [
     history(),
     EditorView.contentAttributes.of({ 'aria-label': '本文', spellcheck: 'false' }),
@@ -38,16 +39,12 @@ function extensions(kind: EditorKind, onChange: () => void): Extension[] {
       ...base,
       csvPreview(kind === 'csv' ? ',' : '\t'),
       EditorView.editorAttributes.of({ class: 'cm-csv' }),
-      keymap.of([{ key: 'Tab', run: insertDelimiter }, ...defaultKeymap, ...historyKeymap])
+      keymap.of([{ key: 'Tab', run: insertDelimiter }, ...BASE_KEYS])
     ]
   }
   const common: Extension[] = [...base, EditorView.lineWrapping, placeholder(PLACEHOLDER)]
   if (kind === 'plain') {
-    return [
-      ...common,
-      EditorView.editorAttributes.of({ class: 'cm-plain' }),
-      keymap.of([...defaultKeymap, ...historyKeymap])
-    ]
+    return [...common, EditorView.editorAttributes.of({ class: 'cm-plain' }), keymap.of(BASE_KEYS)]
   }
   return [
     ...common,
@@ -60,8 +57,7 @@ function extensions(kind: EditorKind, onChange: () => void): Extension[] {
       { key: 'Backspace', run: deleteMarkupBackward },
       { key: 'Tab', run: indentListItem, shift: dedentListItem }, // list items (lists.ts)
       indentWithTab, // other lines
-      ...defaultKeymap,
-      ...historyKeymap
+      ...BASE_KEYS
     ])
   ]
 }

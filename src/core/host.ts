@@ -19,6 +19,12 @@ export interface FileEntry {
   modifiedAt: number
 }
 
+/** A file to open, from outside the notes UI. */
+export interface OpenedFile {
+  folder: FolderHandle
+  name: string
+}
+
 export interface NotesHost {
   storage: {
     get<T = unknown>(key: string): Promise<T | null>
@@ -36,5 +42,5 @@ export interface NotesHost {
     copyPath(handle: FolderHandle, name: string): Promise<void>
   }
   /** "Open this file" from outside (Brighterm's Files tile). Returns an unsubscribe function. */
-  onOpenFile(cb: (file: { folder: FolderHandle; name: string }) => void): () => void
+  onOpenFile(cb: (file: OpenedFile) => void): () => void
 }

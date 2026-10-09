@@ -17,7 +17,7 @@ export interface Field {
   quoted: boolean
 }
 
-export interface ParsedLine {
+interface ParsedLine {
   fields: Field[]
   /** The line ends inside a quoted field: the record goes on in the next line. */
   open: boolean
@@ -68,11 +68,10 @@ export function parseLine(text: string, delim: Delimiter, inQuote = false): Pars
  * Where the quote marks of a quoted field are (relative to the line): the opening one, the
  * first of each `""`, the closing one — what's hidden when the row is shown as a table.
  */
-export function quoteMarks(text: string, field: Field, continued = false): number[] {
+export function quoteMarks(text: string, field: Field): number[] {
   if (!field.quoted) return []
-  const marks: number[] = []
-  let i = field.from
-  if (!continued) marks.push(i++)
+  const marks = [field.from]
+  let i = field.from + 1
   while (i < field.to) {
     if (text.charCodeAt(i) === QUOTE) {
       marks.push(i)

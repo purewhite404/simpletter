@@ -33,7 +33,7 @@ const delimiter = Facet.define<Delimiter, Delimiter>({ combine: (values) => valu
 const rescan = StateEffect.define<null>()
 
 /** How long after the last edit the whole file is read again. */
-export const RESCAN_DELAY = 300
+const RESCAN_DELAY = 300
 
 const modelField = StateField.define<CsvModel>({
   create: (state) => scanDoc(state.doc, state.facet(delimiter)),
@@ -89,7 +89,8 @@ class MarkWidget extends WidgetType {
   }
   toDOM(): HTMLElement {
     const span = document.createElement('span')
-    span.className = (this.sep ? 'cm-csv-sep' : 'cm-csv-quote') + (this.text ? ' cm-csv-mark' : '')
+    if (this.sep) span.className = 'cm-csv-sep'
+    if (this.text) span.classList.add('cm-csv-mark')
     span.textContent = this.text
     return span
   }

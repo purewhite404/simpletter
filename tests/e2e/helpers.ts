@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path'
  * and no test window comes up over theirs.
  */
 
-export const EXE = resolve('src-tauri/target/debug/simpletter.exe')
+const EXE = resolve('src-tauri/target/debug/simpletter.exe')
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 

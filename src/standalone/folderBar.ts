@@ -1,3 +1,4 @@
+import { errorText } from '../core/errorText'
 import { folderName, stillMatching, tabCompletion } from './folderBarText'
 
 /**
@@ -243,5 +244,3 @@ export class FolderBar {
     }
   }
 }
-
-const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err))

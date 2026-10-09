@@ -6,7 +6,7 @@
 
 import { EditorView } from '@codemirror/view'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { FileEntry, FolderHandle, NotesHost } from './host'
+import type { FileEntry, FolderHandle, NotesHost, OpenedFile } from './host'
 import { startNotes } from './notes'
 
 type Folder = Record<string, { content: string; modifiedAt: number }>
@@ -17,7 +17,7 @@ function fakeHost(folders: Record<string, Folder>, saved: Record<string, unknown
     bar: undefined as FolderHandle | null | undefined,
     copied: '',
     changeFolder: (_: FolderHandle) => {},
-    openFile: (_: { folder: FolderHandle; name: string }) => {}
+    openFile: (_: OpenedFile) => {}
   }
   const folderOf = (h: FolderHandle): Folder => {
     const f = folders[h.id]
@@ -97,7 +97,17 @@ async function menuItem(rowText: string, item: string): Promise<void> {
   await settle()
 }
 
-const settle = () => new Promise((r) => setTimeout(r, 0))
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+const settle = () => sleep(0)
+
+/** Makes reading `only` (else every file) take `ms`. */
+function slowRead(host: NotesHost, ms: number, only?: string): void {
+  const read = host.fs.readFile
+  host.fs.readFile = async (h, name) => {
+    if (!only || name === only) await sleep(ms)
+    return read(h, name)
+  }
+}
 
 function root(): HTMLElement {
   document.body.innerHTML = '<div id="notes-root"></div>'
@@ -196,7 +206,7 @@ describe('editing', () => {
     typeContent('A edited')
     row('b').click() // before the save timer fires
     await vi.waitFor(() => expect(content()).toBe('B\nline'))
-    await new Promise((r) => setTimeout(r, 600)) // longer than the save delay
+    await sleep(600) // longer than the save delay
     expect(d['a.md'].content).toBe('A edited')
     expect(d['b.md']).toEqual({ content: 'B\r\nline', modifiedAt: 1 }) // not even its line endings
   })
@@ -204,11 +214,7 @@ describe('editing', () => {
   it('a note slow to read: the save timer firing meanwhile never writes into it', async () => {
     const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B', modifiedAt: 1 } }
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
-    const read = host.fs.readFile
-    host.fs.readFile = async (h, name) => {
-      if (name === 'b.md') await new Promise((r) => setTimeout(r, 600)) // longer than the save delay
-      return read(h, name)
-    }
+    slowRead(host, 600, 'b.md') // longer than the save delay
     await startNotes(root(), host)
     row('a').click()
     await settle()
@@ -222,15 +228,11 @@ describe('editing', () => {
   it('two notes clicked quickly: the last one shows, also if the first is read last', async () => {
     const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B', modifiedAt: 1 } }
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
-    const read = host.fs.readFile
-    host.fs.readFile = async (h, name) => {
-      if (name === 'a.md') await new Promise((r) => setTimeout(r, 100))
-      return read(h, name)
-    }
+    slowRead(host, 100, 'a.md')
     await startNotes(root(), host)
     row('a').click()
     row('b').click()
-    await new Promise((r) => setTimeout(r, 200)) // both reads are done
+    await sleep(200) // both reads are done
     expect(content()).toBe('B')
     expect($<HTMLInputElement>('#title').value).toBe('b')
     typeContent('B edited')
@@ -241,11 +243,7 @@ describe('editing', () => {
   it('a new note is the one its title renames at once, even with notes slow to read', async () => {
     const d: Folder = { 'b.md': { content: 'B', modifiedAt: 1 } }
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
-    const read = host.fs.readFile
-    host.fs.readFile = async (h, name) => {
-      await new Promise((r) => setTimeout(r, 300))
-      return read(h, name)
-    }
+    slowRead(host, 300)
     await startNotes(root(), host)
     row('b').click()
     await vi.waitFor(() => expect(content()).toBe('B'))
@@ -262,17 +260,13 @@ describe('editing', () => {
   it('the open note clicked again and typed into while it is read: the typing stays', async () => {
     const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 } }
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
-    const read = host.fs.readFile
-    host.fs.readFile = async (h, name) => {
-      await new Promise((r) => setTimeout(r, 600)) // the save timer fires meanwhile
-      return read(h, name)
-    }
+    slowRead(host, 600) // the save timer fires meanwhile
     await startNotes(root(), host)
     row('a').click()
     await vi.waitFor(() => expect(content()).toBe('A'), { timeout: 2000 })
     row('a').click()
     typeContent('A, typed during the read')
-    await new Promise((r) => setTimeout(r, 800))
+    await sleep(800)
     expect(content()).toBe('A, typed during the read')
     expect(d['a.md'].content).toBe('A, typed during the read')
   })
@@ -285,7 +279,7 @@ describe('editing', () => {
     await settle()
     typeContent('typo')
     typeContent('A') // undone before the save
-    await new Promise((r) => setTimeout(r, 600))
+    await sleep(600)
     expect(d['a.md']).toEqual({ content: 'A', modifiedAt: 1 })
 
     typeContent('A2')
@@ -293,7 +287,7 @@ describe('editing', () => {
     const saved = d['a.md'].modifiedAt
     typeContent('A23')
     typeContent('A2') // back to the saved text
-    await new Promise((r) => setTimeout(r, 600))
+    await sleep(600)
     expect(d['a.md'].modifiedAt).toBe(saved)
   })
 
@@ -381,7 +375,7 @@ describe('editor', () => {
     expect($('#content .cm-editor').classList.contains('cm-plain')).toBe(true)
     expect($('#content .cm-lp-h1')).toBeNull()
 
-    await new Promise((r) => setTimeout(r, 600)) // longer than the save delay
+    await sleep(600) // longer than the save delay
     expect(dir['a.md'].modifiedAt).toBe(1)
     expect(dir['log.txt'].modifiedAt).toBe(1)
   })
@@ -413,7 +407,7 @@ describe('editor', () => {
     click([...document.querySelectorAll<HTMLElement>('#content .cm-lp-table td')][2])
     expect(text.slice(cursor())).toMatch(/^ \| 5 \|/) // an empty cell: inside it, after one space
 
-    await new Promise((r) => setTimeout(r, 600))
+    await sleep(600)
     expect(dir['t.md'].modifiedAt).toBe(1) // not an edit
   })
 
@@ -436,7 +430,7 @@ describe('editor', () => {
     const cellTexts = () => [...document.querySelectorAll('#content .cm-csv-cell')].map((c) => c.textContent)
     expect(cellTexts()).toEqual(['name', 'qty', 'apple, red', '3']) // the quotes and delimiters are hidden
     expect($<HTMLElement>('#content .cm-csv-cell').style.width).toBe('calc(12ch + 1px)')
-    await new Promise((r) => setTimeout(r, 600))
+    await sleep(600)
     expect(dir['data.csv'].modifiedAt).toBe(1) // opening is not an edit
 
     const view = editorView()

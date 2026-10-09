@@ -1,6 +1,7 @@
+import { errorText } from '../core/errorText'
+
 /** A bar under the folder bar with the last error nobody caught; × closes it. */
 export function showError(reason: unknown): void {
-  const message = reason instanceof Error ? reason.message : String(reason)
   let bar = document.getElementById('error-bar')
   if (!bar) {
     bar = document.createElement('div')
@@ -15,5 +16,5 @@ export function showError(reason: unknown): void {
     bar.append(text, close)
     document.getElementById('notes-root')?.before(bar)
   }
-  bar.querySelector('span')!.textContent = message
+  bar.querySelector('span')!.textContent = errorText(reason)
 }

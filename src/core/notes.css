@@ -279,10 +279,6 @@ body {
   line-height: 1.5;
 }
 
-#content .cm-csv .cm-content {
-  padding-bottom: 40vh;
-}
-
 #content .cm-csv-row {
   padding: 0;
   border-bottom: 1px solid var(--bt-border);

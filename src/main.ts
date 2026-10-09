@@ -5,6 +5,7 @@ import './standalone/tokens.css'
 import './core/notes.css'
 import './standalone/standalone.css'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { errorText } from './core/errorText'
 import { startNotes } from './core/notes'
 import { FolderBar } from './standalone/folderBar'
 import { createTauriHost, pickFolder, suggestFolders } from './standalone/tauriHost'
@@ -36,12 +37,6 @@ void getCurrentWindow().onCloseRequested(async (event) => {
     await (await notes).flush()
   } catch (err) {
     showError(err)
-    if (
-      !(await confirm(
-        `保存できませんでした。保存せずに閉じますか？\n\n${err instanceof Error ? err.message : String(err)}`
-      ))
-    ) {
-      event.preventDefault()
-    }
+    if (!(await confirm(`保存できませんでした。保存せずに閉じますか？\n\n${errorText(err)}`))) event.preventDefault()
   }
 })

@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
-import type { FileEntry, FolderHandle, NotesHost } from '../core/host'
+import type { FileEntry, FolderHandle, NotesHost, OpenedFile } from '../core/host'
 import type { FolderBar } from './folderBar'
 
 /**
@@ -9,11 +9,7 @@ import type { FolderBar } from './folderBar'
  * (src-tauri/src/lib.rs), settings in localStorage, and the folder bar drawn
  * by this window. A folder handle's id is the folder's absolute path.
  */
-export function createTauriHost(): {
-  host: NotesHost
-  attachFolderBar: (bar: FolderBar) => void
-  changeFolder: (input: string) => Promise<void>
-} {
+export function createTauriHost(): TauriHost {
   const folderListeners = new Set<(folder: FolderHandle) => void>()
   let bar: FolderBar | null = null
 
@@ -73,9 +69,12 @@ export function createTauriHost(): {
   }
 }
 
-interface OpenedFile {
-  folder: FolderHandle
-  name: string
+interface TauriHost {
+  host: NotesHost
+  /** The folder bar shows the folder (drawn after the host: it needs `changeFolder`). */
+  attachFolderBar(bar: FolderBar): void
+  /** A typed / picked path → the notes UI switches to it; rejects with the message to show. */
+  changeFolder(input: string): Promise<void>
 }
 
 /** Completions for the folder bar. */
