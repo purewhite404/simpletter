@@ -74,10 +74,10 @@ test('a folder typed into the bar lists its notes; typing saves to disk', async 
   try {
     await expect(app.page.locator('#picker-screen')).toBeVisible()
     await typeFolder(app.page, dir)
-    await expect(rows(app.page)).toHaveText(['a', 'b'])
+    await expect(rows(app.page)).toHaveText(['a.md', 'b.md'])
     await expect(editor(app.page)).toHaveText('note A') // the first note opens
 
-    await row(app.page, 'b').click()
+    await row(app.page, 'b.md').click()
     await expect(editor(app.page)).toHaveText('note B')
     await editor(app.page).fill('note B, edited')
     await expect.poll(() => readFileSync(join(dir, 'b.md'), 'utf-8')).toBe('note B, edited')
@@ -86,7 +86,7 @@ test('a folder typed into the bar lists its notes; typing saves to disk', async 
     await expect(app.page.locator('#title')).toHaveValue(/^Untitled-/) // the new note shows (as the user would see)
     await app.page.locator('#title').fill('買い物')
     await app.page.locator('#title').press('Enter')
-    await expect(row(app.page, '買い物')).toBeVisible()
+    await expect(row(app.page, '買い物.md')).toBeVisible()
     expect(mdFiles(dir)).toEqual(['a.md', 'b.md', '買い物.md'])
     expect(readFileSync(join(dir, 'b.md'), 'utf-8')).toBe('note B, edited')
     expect(app.pageErrors).toEqual([])
@@ -130,15 +130,15 @@ test('a file given on the command line (a double-click in Explorer) opens in its
     await expect(editor(app.page)).toHaveText('opened from Explorer')
     await expect(app.page.locator('#title')).toHaveValue('日本語 メモ')
     await expect(app.page.getByRole('combobox', { name: 'フォルダのパス' })).toHaveValue(dir)
-    await expect(rows(app.page)).toHaveText(['a', '日本語 メモ'])
-    await expect(app.page.locator('.file-row--active')).toHaveText('日本語 メモ')
+    await expect(rows(app.page)).toHaveText(['a.md', '日本語 メモ.md']) // the list shows the extension, the title doesn't
+    await expect(app.page.locator('.file-row--active')).toHaveText('日本語 メモ.md')
     await app.close()
 
     // Not a note: opened and listed alongside the notes (like Brighterm's "Open in Notes").
     app = await launch(profile, [join(dir, 'log.txt')])
     await expect(editor(app.page)).toHaveText('a text file')
     await expect(app.page.locator('#content .cm-plain')).toBeVisible() // not a note: plain text
-    await expect(rows(app.page)).toHaveText(['a', 'log.txt', '日本語 メモ'])
+    await expect(rows(app.page)).toHaveText(['a.md', 'log.txt', '日本語 メモ.md'])
     await app.close()
 
     // A file that's gone: the error bar says so, the remembered folder stays.
@@ -299,7 +299,7 @@ test('CSV / TSV: listed and drawn as lined-up cells; a click types into the cell
   try {
     const page = app.page
     await typeFolder(page, dir)
-    await expect(rows(page)).toHaveText(['a', 'data.csv', 't.tsv'])
+    await expect(rows(page)).toHaveText(['a.md', 'data.csv', 't.tsv'])
     await row(page, 'data.csv').click()
     await expect(page.locator('#content .cm-csv')).toBeVisible()
     const cells = page.locator('#content .cm-csv-cell')
@@ -452,13 +452,13 @@ test('the folder and the sort order survive a restart', async () => {
   let app = await launch(profile)
   try {
     await typeFolder(app.page, dir)
-    await expect(rows(app.page)).toHaveText(['mid', 'new', 'old'])
+    await expect(rows(app.page)).toHaveText(['mid.md', 'new.md', 'old.md'])
     await app.page.getByRole('combobox', { name: '並べ替え' }).selectOption({ label: '新しい順' })
-    await expect(rows(app.page)).toHaveText(['new', 'mid', 'old'])
+    await expect(rows(app.page)).toHaveText(['new.md', 'mid.md', 'old.md'])
     await app.close()
 
     app = await launch(profile)
-    await expect(rows(app.page)).toHaveText(['new', 'mid', 'old'])
+    await expect(rows(app.page)).toHaveText(['new.md', 'mid.md', 'old.md'])
     await expect(app.page.getByRole('combobox', { name: 'フォルダのパス' })).toHaveValue(dir)
     await expect(app.page.getByRole('combobox', { name: '並べ替え' })).toHaveValue('date-desc')
   } finally {
@@ -482,34 +482,34 @@ test('menu: rename (case only too), refused names, delete asks first, copy path'
     await typeFolder(app.page, dir)
 
     // Only the case changes (the same file on Windows): the note must survive.
-    await menuItem('note', '名前の変更')
+    await menuItem('note.md', '名前の変更')
     await box.fill('Note')
     await box.press('Enter')
-    await expect(row(app.page, 'Note')).toBeVisible()
+    await expect(row(app.page, 'Note.md')).toBeVisible()
     expect(mdFiles(dir)).toEqual(['Note.md', 'other.md'])
     expect(readFileSync(join(dir, 'Note.md'), 'utf-8')).toBe('my note')
 
     // Another note's name is refused.
-    await menuItem('Note', '名前の変更')
+    await menuItem('Note.md', '名前の変更')
     await box.fill('OTHER')
     await box.press('Enter')
     await expect.poll(lastDialog).toBe('同じ名前のファイルがあります: OTHER.md')
     expect(readFileSync(join(dir, 'other.md'), 'utf-8')).toBe('other note')
 
     // Copy path → the OS clipboard (through the Rust side).
-    await menuItem('other', 'パスのコピー')
+    await menuItem('other.md', 'パスのコピー')
     const clipboard = () =>
       spawnSync('powershell', ['-NoProfile', '-Command', 'Get-Clipboard'], { encoding: 'utf-8' }).stdout.trim()
     await expect.poll(clipboard).toBe(join(dir, 'other.md'))
 
     // Delete asks first; cancel keeps the note.
-    await menuItem('Note', '削除')
-    await expect.poll(lastDialog).toBe('「Note」を削除しますか？')
+    await menuItem('Note.md', '削除')
+    await expect.poll(lastDialog).toBe('「Note.md」を削除しますか？')
     await app.page.waitForTimeout(300)
     expect(existsSync(join(dir, 'Note.md'))).toBe(true)
     await answerConfirm(app.page, true)
-    await menuItem('Note', '削除')
-    await expect(row(app.page, 'Note')).toHaveCount(0)
+    await menuItem('Note.md', '削除')
+    await expect(row(app.page, 'Note.md')).toHaveCount(0)
     expect(mdFiles(dir)).toEqual(['other.md'])
     await expect(app.page.getByRole('alert')).toHaveCount(0) // no uncaught errors
     expect(app.pageErrors).toEqual([])

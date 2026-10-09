@@ -135,4 +135,6 @@ export const answerConfirm = (page: Page, ok: boolean): Promise<void> =>
 export const editor = (page: Page) => page.locator('#content .cm-content')
 
 export const rows = (page: Page) => page.locator('.file-row')
-export const row = (page: Page, name: string) => page.locator('.file-row', { hasText: new RegExp(`^${name}$`) })
+/** The list row of file `name` (the full name: the list shows the extension). */
+export const row = (page: Page, name: string) =>
+  page.locator('.file-row', { hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) })

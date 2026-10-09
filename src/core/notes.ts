@@ -199,7 +199,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     for (const file of visible) {
       const row = document.createElement('button')
       row.className = 'file-row' + (file.name === currentFile ? ' file-row--active' : '')
-      row.textContent = displayName(file.name)
+      row.textContent = file.name // the list shows the extension; the title field doesn't
       row.dataset.name = file.name
       row.addEventListener('click', () => {
         closeOverlaySidebar()
@@ -353,7 +353,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
 
   async function deleteNote(file: FileEntry): Promise<void> {
     // `await`: in the simpletter app, Tauri's dialog plugin makes confirm() async (a native dialog).
-    if (!(await confirm(`「${displayName(file.name)}」を削除しますか？`))) return
+    if (!(await confirm(`「${file.name}」を削除しますか？`))) return
     if (currentFile === file.name) {
       cancelSave()
       closeNote()

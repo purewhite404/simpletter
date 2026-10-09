@@ -62,6 +62,8 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   Notes uses, **same shape**. Keep it that way: it's what lets the same code be Brighterm's plugin.
   `names.ts` = pure naming/sorting helpers, `fileKind` (md + markdown / csv / tsv / plain, a `Map` lookup;
   `isListed` = all but plain); a renamed note keeps `.markdown` (`noteExtension`), anything else becomes `.md`.
+  The file list shows full names (user's request, 2026-10-09); `displayName` (no `.md` / `.markdown`) is only for
+  the title field, the rename box and the sort order.
   `markup.ts` = the HTML (was `index.html`). `errorText.ts` = the one `err → message` (also used by standalone).
   `notes.ts`: `closeNote()` (no note open, a pending read dropped) and `cancelSave()` are the only places that
   do that — use them rather than resetting `currentFile` / the timer by hand.
@@ -249,6 +251,10 @@ once, folder completions sorted with `sort_by_cached_key`; Prettier + rustfmt (s
 the installer, but opened as plain text and not listed before) → the next release is at least a **patch**.
 Tests: Vitest 94, Rust 16, e2e 12. → 0.2.2 (patch, tag v0.2.2, installer built). Not pushed.
 Not yet checked by hand: the installed 0.2.2 opening a double-clicked `.markdown`.
+
+Done (2026-10-09): the file list shows `.md` / `.markdown` too (user's choice: the list only — title field and
+rename box stay without it; delete confirm shows the full name). Brighterm's `notes.spec.ts` would need full names
+in its row checks as well. User-visible → next release is a **minor** (while 0.x: a change the user notices).
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).

@@ -145,7 +145,7 @@ describe('folder', () => {
     let s = fakeHost({ A: a }, { folderHandle: handle('A') })
     await startNotes(root(), s.host)
     expect($('#notes-screen').hidden).toBe(false)
-    expect(rows()).toEqual(['a', 'b']) // only .md
+    expect(rows()).toEqual(['a.md', 'b.md']) // only .md, shown with the extension
     expect(s.state.bar).toEqual(handle('A'))
 
     s = fakeHost({}, { folderHandle: handle('gone') })
@@ -175,7 +175,7 @@ describe('folder', () => {
     typeContent('牛乳')
     await vi.waitFor(() => expect(names(empty)).toEqual(['買い物.md']), { timeout: 2000 })
     expect(empty['買い物.md'].content).toBe('牛乳')
-    expect(rows()).toEqual(['買い物'])
+    expect(rows()).toEqual(['買い物.md'])
   })
 })
 
@@ -185,7 +185,7 @@ describe('editing', () => {
     const b: Folder = { 'b.md': { content: 'B', modifiedAt: 1 } }
     const { host, state } = fakeHost({ A: a, B: b }, { folderHandle: handle('A') })
     await startNotes(root(), host)
-    row('a').click()
+    row('a.md').click()
     await settle()
     typeContent('new')
     expect(a['a.md'].content).toBe('old')
@@ -201,10 +201,10 @@ describe('editing', () => {
     const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B\r\nline', modifiedAt: 1 } }
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    row('a').click()
+    row('a.md').click()
     await settle()
     typeContent('A edited')
-    row('b').click() // before the save timer fires
+    row('b.md').click() // before the save timer fires
     await vi.waitFor(() => expect(content()).toBe('B\nline'))
     await sleep(600) // longer than the save delay
     expect(d['a.md'].content).toBe('A edited')
@@ -216,10 +216,10 @@ describe('editing', () => {
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
     slowRead(host, 600, 'b.md') // longer than the save delay
     await startNotes(root(), host)
-    row('a').click()
+    row('a.md').click()
     await settle()
     typeContent('A edited')
-    row('b').click()
+    row('b.md').click()
     await vi.waitFor(() => expect(content()).toBe('B'), { timeout: 2000 })
     expect(d['a.md'].content).toBe('A edited')
     expect(d['b.md']).toEqual({ content: 'B', modifiedAt: 1 })
@@ -230,8 +230,8 @@ describe('editing', () => {
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
     slowRead(host, 100, 'a.md')
     await startNotes(root(), host)
-    row('a').click()
-    row('b').click()
+    row('a.md').click()
+    row('b.md').click()
     await sleep(200) // both reads are done
     expect(content()).toBe('B')
     expect($<HTMLInputElement>('#title').value).toBe('b')
@@ -245,7 +245,7 @@ describe('editing', () => {
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
     slowRead(host, 300)
     await startNotes(root(), host)
-    row('b').click()
+    row('b.md').click()
     await vi.waitFor(() => expect(content()).toBe('B'))
     $<HTMLButtonElement>('#new-note').click()
     await settle() // its empty file is written; nothing to read
@@ -262,9 +262,9 @@ describe('editing', () => {
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
     slowRead(host, 600) // the save timer fires meanwhile
     await startNotes(root(), host)
-    row('a').click()
+    row('a.md').click()
     await vi.waitFor(() => expect(content()).toBe('A'), { timeout: 2000 })
-    row('a').click()
+    row('a.md').click()
     typeContent('A, typed during the read')
     await sleep(800)
     expect(content()).toBe('A, typed during the read')
@@ -275,7 +275,7 @@ describe('editing', () => {
     const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 } }
     const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    row('a').click()
+    row('a.md').click()
     await settle()
     typeContent('typo')
     typeContent('A') // undone before the save
@@ -297,7 +297,7 @@ describe('editing', () => {
     const notes = await startNotes(root(), host)
     await notes.flush() // nothing to save
     expect(d['a.md'].modifiedAt).toBe(1)
-    row('a').click()
+    row('a.md').click()
     await settle()
     typeContent('last words')
     await notes.flush()
@@ -316,22 +316,22 @@ describe('editing', () => {
     sort.value = 'date-desc'
     sort.dispatchEvent(new Event('change'))
     await settle()
-    expect(rows()).toEqual(['new note', 'mid', 'old note'])
+    expect(rows()).toEqual(['new note.md', 'mid.md', 'old note.md'])
     expect(storage.get('sortOrder')).toBe('date-desc')
 
-    row('old note').click()
+    row('old note.md').click()
     await settle()
     typeContent('edited')
-    await vi.waitFor(() => expect(rows()).toEqual(['old note', 'new note', 'mid']), { timeout: 2000 })
+    await vi.waitFor(() => expect(rows()).toEqual(['old note.md', 'new note.md', 'mid.md']), { timeout: 2000 })
 
     // Search keeps the order.
     type($('#search'), 'note')
-    expect(rows()).toEqual(['old note', 'new note'])
+    expect(rows()).toEqual(['old note.md', 'new note.md'])
 
     // Next start: the same order.
     await startNotes(root(), host)
     expect($<HTMLSelectElement>('#sort').value).toBe('date-desc')
-    expect(rows()).toEqual(['old note', 'new note', 'mid'])
+    expect(rows()).toEqual(['old note.md', 'new note.md', 'mid.md'])
   })
 
   it('the title field renames the note, but never over another one', async () => {
@@ -341,7 +341,7 @@ describe('editing', () => {
     }
     const { host } = fakeHost({ A: a }, { folderHandle: handle('A') })
     await startNotes(root(), host)
-    row('note').click()
+    row('note.md').click()
     await settle()
     const title = $<HTMLInputElement>('#title')
     title.value = 'Other'
@@ -385,7 +385,7 @@ describe('editor', () => {
     const dir: Folder = { 't.md': { content: text, modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    row('t').click()
+    row('t.md').click()
     await vi.waitFor(() => expect($('#content .cm-lp-table')).not.toBeNull())
     const cells = () =>
       [...document.querySelectorAll<HTMLElement>('#content .cm-lp-table tr')].map((tr) =>
@@ -421,7 +421,7 @@ describe('editor', () => {
     }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    expect(rows()).toEqual(['a', 'data.csv', 't.TSV'])
+    expect(rows()).toEqual(['a.md', 'data.csv', 't.TSV'])
 
     row('data.csv').click()
     await vi.waitFor(() => expect(content()).toBe(csv))
@@ -449,7 +449,7 @@ describe('editor', () => {
     const dir: Folder = { 'todo.md': { content: '- [ ] milk\n- [x] eggs', modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    row('todo').click()
+    row('todo.md').click()
     await vi.waitFor(() => expect(document.querySelectorAll('#content .cm-lp-task')).toHaveLength(2))
     const [milk] = document.querySelectorAll<HTMLInputElement>('#content .cm-lp-task')
     expect(milk.checked).toBe(false)
@@ -462,8 +462,8 @@ describe('editor', () => {
     const dir: Folder = { 'old.markdown': { content: '# H', modifiedAt: 1 }, 'x.txt': { content: '', modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    expect(rows()).toEqual(['old'])
-    row('old').click()
+    expect(rows()).toEqual(['old.markdown']) // the list shows the extension, the title field doesn't
+    row('old.markdown').click()
     await vi.waitFor(() => expect(content()).toBe('# H'))
     expect($('#content .cm-editor').classList.contains('cm-markdown')).toBe(true)
     const title = $<HTMLInputElement>('#title')
@@ -473,7 +473,7 @@ describe('editor', () => {
     title.dispatchEvent(new Event('change'))
     await vi.waitFor(() => expect(names(dir)).toEqual(['by title.markdown', 'x.txt']))
 
-    await menuItem('by title', '名前の変更')
+    await menuItem('by title.markdown', '名前の変更')
     const box = $<HTMLInputElement>('.file-rename')
     box.value = 'by menu'
     box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
@@ -490,12 +490,12 @@ describe('dialogs', () => {
     const dir: Folder = { 'keep.md': { content: 'x', modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    await menuItem('keep', '削除')
+    await menuItem('keep.md', '削除')
     await settle()
-    expect(dialogs).toEqual(['「keep」を削除しますか？'])
+    expect(dialogs).toEqual(['「keep.md」を削除しますか？'])
     expect(names(dir)).toEqual(['keep.md'])
     answer = true
-    await menuItem('keep', '削除')
+    await menuItem('keep.md', '削除')
     await vi.waitFor(() => expect(names(dir)).toEqual([]))
   })
 })
@@ -507,7 +507,7 @@ describe('menu', () => {
     const { host, state } = fakeHost({ one, two }, { folderHandle: handle('one') })
     await startNotes(root(), host)
 
-    row('a').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }))
+    row('a.md').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }))
     expect([...document.querySelectorAll('.ctx-menu button')].map((b) => b.textContent)).toEqual([
       'コピー',
       '切り取り',
@@ -518,34 +518,34 @@ describe('menu', () => {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect($('.ctx-menu')).toBeNull()
 
-    await menuItem('a', 'コピー')
-    await menuItem('b', '貼り付け')
+    await menuItem('a.md', 'コピー')
+    await menuItem('b.md', '貼り付け')
     expect(names(one)).toEqual(['a (2).md', 'a.md', 'b.md'])
     expect(one['a (2).md'].content).toBe('note A')
 
-    await menuItem('b', 'パスのコピー')
+    await menuItem('b.md', 'パスのコピー')
     expect(state.copied).toBe('one\\b.md')
 
     // Copied in one, pasted in two (which has its own a.md): the copy is folder one's.
-    await menuItem('a', 'コピー')
+    await menuItem('a.md', 'コピー')
     state.changeFolder(handle('two'))
-    await vi.waitFor(() => expect(rows()).toEqual(['a']))
-    await menuItem('a', '貼り付け')
+    await vi.waitFor(() => expect(rows()).toEqual(['a.md']))
+    await menuItem('a.md', '貼り付け')
     expect(two['a (2).md'].content).toBe('note A')
     expect(two['a.md'].content).toBe('folder two A')
 
     // Cut in one: pasting in one changes nothing; in two, the note moves, and the cut is used up.
     state.changeFolder(handle('one'))
-    await vi.waitFor(() => expect(rows()).toContain('b'))
-    await menuItem('b', '切り取り')
-    await menuItem('a', '貼り付け')
+    await vi.waitFor(() => expect(rows()).toContain('b.md'))
+    await menuItem('b.md', '切り取り')
+    await menuItem('a.md', '貼り付け')
     expect(names(one)).toEqual(['a (2).md', 'a.md', 'b.md'])
     state.changeFolder(handle('two'))
-    await vi.waitFor(() => expect(rows()).toEqual(['a', 'a (2)']))
-    await menuItem('a', '貼り付け')
+    await vi.waitFor(() => expect(rows()).toEqual(['a.md', 'a (2).md']))
+    await menuItem('a.md', '貼り付け')
     expect(two['b.md'].content).toBe('note B')
     expect(one['b.md']).toBeUndefined()
-    row('a').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }))
+    row('a.md').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }))
     expect([...document.querySelectorAll('.ctx-menu button')].map((b) => b.textContent)).not.toContain('貼り付け')
   })
 
@@ -556,21 +556,21 @@ describe('menu', () => {
     }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
-    row('note').click()
+    row('note.md').click()
     await settle()
     const box = () => $<HTMLInputElement>('.file-rename')
 
     // Esc: nothing changes.
-    await menuItem('note', '名前の変更')
+    await menuItem('note.md', '名前の変更')
     expect(document.activeElement).toBe(box())
     expect(box().value).toBe('note')
     box().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await settle()
     expect(box()).toBeNull()
-    expect(rows()).toEqual(['note', 'other'])
+    expect(rows()).toEqual(['note.md', 'other.md'])
 
     // Only the case changes (the same file on Windows): the note must survive.
-    await menuItem('note', '名前の変更')
+    await menuItem('note.md', '名前の変更')
     box().value = 'Note'
     box().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
     await vi.waitFor(() => expect(names(dir)).toEqual(['Note.md', 'other.md']))
@@ -578,7 +578,7 @@ describe('menu', () => {
     expect($<HTMLInputElement>('#title').value).toBe('Note')
 
     // A name another note has (in any case) is refused; nothing is overwritten.
-    await menuItem('Note', '名前の変更')
+    await menuItem('Note.md', '名前の変更')
     box().value = 'OTHER'
     box().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
     await vi.waitFor(() => expect(dialogs.at(-1)).toContain('同じ名前のファイルがあります'))
@@ -586,18 +586,18 @@ describe('menu', () => {
     expect(dir['Note.md'].content).toBe('my note')
 
     // A real rename.
-    await menuItem('Note', '名前の変更')
+    await menuItem('Note.md', '名前の変更')
     box().value = 'renamed'
     box().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
     await vi.waitFor(() => expect(names(dir)).toEqual(['other.md', 'renamed.md']))
     expect(dir['renamed.md'].content).toBe('my note')
 
     // Delete: cancel keeps it; OK deletes it and clears the editor.
-    await menuItem('renamed', '削除')
-    expect(dialogs.at(-1)).toBe('「renamed」を削除しますか？')
+    await menuItem('renamed.md', '削除')
+    expect(dialogs.at(-1)).toBe('「renamed.md」を削除しますか？')
     expect(dir['renamed.md']).toBeDefined()
     acceptConfirm = true
-    await menuItem('renamed', '削除')
+    await menuItem('renamed.md', '削除')
     await vi.waitFor(() => expect(names(dir)).toEqual(['other.md']))
     expect(content()).toBe('')
     expect($<HTMLInputElement>('#title').value).toBe('')

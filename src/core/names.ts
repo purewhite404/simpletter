@@ -37,7 +37,10 @@ export const noteExtension = (name: string): string => (/\.markdown$/i.test(name
 /** Notes and tables are listed whenever they're in the folder; other files only once opened from outside. */
 export const isListed = (name: string): boolean => fileKind(name) !== 'plain'
 
-/** Notes show without ".md" / ".markdown"; other files keep their full name so the extension stays visible. */
+/**
+ * A name without ".md" / ".markdown" (other files keep their full name): the title field, the rename box and
+ * the sort order use it. The file list shows the full name.
+ */
 export const displayName = (name: string): string => name.replace(NOTE_EXTENSION, '')
 
 /** By the name as shown ("note 2" before "note 10", case ignored). */
