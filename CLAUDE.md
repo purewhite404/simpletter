@@ -252,6 +252,13 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   become the default app if the user already chose one for `.md` (「プログラムから開く」→ 常に使う). Dev mode has no association: `npx.cmd tauri dev -- -- C:\path\note.md`.
 - The window is created in `lib.rs` (`app.windows` is empty in `tauri.conf.json`) so tests can set
   profile/args; the capability still targets the label `main`.
+- **The NSIS installer is our own template** (`src-tauri/nsis/installer.nsi`, `bundle.windows.nsis.template`; user's
+  request 2026-10-09: simpletter starts by opening a file, so no shortcuts / "run"): Tauri has no setting for
+  that. = Tauri's template from tauri-bundler 2.10.1 (CLI 2.12.1) minus the finish page (run / desktop check
+  boxes), the start menu page and all shortcut creation (also /P, /S), /NS, /R. Install deletes `simpletter.lnk`
+  in Start menu / desktop if it points to our exe (an older version's uninstaller keeps them on update).
+  The commit "Add Tauri's NSIS template as is" is upstream unchanged — **after a Tauri CLI update**, diff the new
+  upstream template against that and carry the changes over. `startMenuFolder` does nothing.
 
 ## Status (2026-10-08)
 
@@ -323,6 +330,11 @@ toml besides md / markdown / csv / tsv (13); shown as plain text; other files st
 outside (`extraFile`; tests now use `.bak` for those). Brighterm's Notes would list them too. Tests: Vitest 102,
 e2e 14; the generated `installer.nsi` has the 13 `APP_ASSOCIATE` lines. Next release: **minor** (was due anyway).
 Not yet checked by hand: the installed build's double-click for the new types.
+
+Done (2026-10-09): installer without the finish page (no "run simpletter" / desktop shortcut check boxes) and without
+any shortcut (see Gotchas: NSIS template). Pages: welcome → folder → progress (Close). makensis: 0 warnings;
+13 `APP_ASSOCIATE` kept. Not yet checked by hand: the pages, no shortcuts, 0.3.0's shortcuts removed on install
+over it, `.md` double-click, uninstall. User-visible → part of the next (minor) release.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).
