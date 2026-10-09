@@ -131,6 +131,8 @@ are already shown while composing), long files.
 Done (2026-10-09): tables in the live preview (user's choices: a click turns the table back into its text — no
 in-cell editing; no column re-alignment; inline formatting in cells). Tests: Vitest 56 (livePreview 21),
 e2e 7. `dist-brighterm/main.js` ~711 KB, static-scan clean.
+Checked by hand by the user (2026-10-09): works. A wide table doesn't scroll sideways: it fits the width and
+cells wrap — the user wants it that way (keep; `overflow-x: auto` on the wrap only matters for unbreakable text).
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons).
