@@ -9,7 +9,16 @@
 // <table> widget, which a ViewPlugin couldn't do.)
 
 import { syntaxTree } from '@codemirror/language'
-import { EditorSelection, EditorState, Prec, StateEffect, StateField, type Extension, type Range, type StateCommand } from '@codemirror/state'
+import {
+  EditorSelection,
+  EditorState,
+  Prec,
+  StateEffect,
+  StateField,
+  type Extension,
+  type Range,
+  type StateCommand
+} from '@codemirror/state'
 import { Decoration, EditorView, keymap, WidgetType, type DecorationSet } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 
@@ -117,7 +126,9 @@ function cellParts(state: EditorState, cell: SyntaxNode, base: number): TablePar
       if (name === 'InlineCode') {
         // In a table even code writes "|" as "\|" (GFM): the backslash isn't shown.
         const code = state.sliceDoc(n.from, n.to)
-        for (let i = code.indexOf('\\|'); i >= 0; i = code.indexOf('\\|', i + 2)) hidden.push([n.from + i, n.from + i + 1])
+        for (let i = code.indexOf('\\|'); i >= 0; i = code.indexOf('\\|', i + 2)) {
+          hidden.push([n.from + i, n.from + i + 1])
+        }
       }
     } else if (name === 'Link') {
       const [open, close] = n.getChildren('LinkMark')
@@ -149,7 +160,10 @@ function cellParts(state: EditorState, cell: SyntaxNode, base: number): TablePar
   for (let i = 0; i + 1 < cuts.length; i++) {
     const [a, b] = [cuts[i], cuts[i + 1]]
     if (hidden.some(([h, k]) => h <= a && b <= k)) continue
-    const cls = styled.filter(([s, e]) => s <= a && b <= e).map(([, , c]) => c).join(' ')
+    const cls = styled
+      .filter(([s, e]) => s <= a && b <= e)
+      .map(([, , c]) => c)
+      .join(' ')
     const text = state.sliceDoc(a, b)
     const last = parts.at(-1)
     if (last && last.cls === cls && prevEnd === a) last.text += text
@@ -193,7 +207,9 @@ export function tableModel(state: EditorState, node: SyntaxNode): TableModel {
   const header = node.getChild('TableHeader')
   const head = header ? rowCells(state, header, base) : []
   const delim = node.getChildren('TableDelimiter').find((d) => d.to - d.from > 1)
-  const specs = delim ? doc.sliceString(delim.from, delim.to).trim().replace(/^\|/, '').replace(/\|$/, '').split('|') : []
+  const specs = delim
+    ? doc.sliceString(delim.from, delim.to).trim().replace(/^\|/, '').replace(/\|$/, '').split('|')
+    : []
   const n = head.length
   const rows = node.getChildren('TableRow').map((row) => {
     const lineEnd = doc.lineAt(row.from).to - base
@@ -262,7 +278,9 @@ function tableClickOffset(target: HTMLElement, event: MouseEvent): number {
   const cell = target.closest<HTMLElement>('td, th')
   if (!cell) return Number(target.closest<HTMLElement>('tr')?.dataset.from ?? 0)
   // On a character: that character (each shown part is a run of the source as is).
-  const doc = cell.ownerDocument as Document & { caretRangeFromPoint?: (x: number, y: number) => globalThis.Range | null }
+  const doc = cell.ownerDocument as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => globalThis.Range | null
+  }
   const caret = doc.caretRangeFromPoint?.(event.clientX, event.clientY)
   const part = caret?.startContainer.parentElement?.closest<HTMLElement>('[data-part]')
   if (caret && part && cell.contains(part)) return Number(part.dataset.part) + caret.startOffset
@@ -304,7 +322,7 @@ export function previewDecorations(state: EditorState): DecorationSet {
     if (from < to) out.push(deco.range(from, to))
   }
   const addLines = (cls: string, from: number, to: number) => {
-    for (let pos = from; pos <= to; ) {
+    for (let pos = from; pos <= to;) {
       const line = doc.lineAt(pos)
       out.push(lineClass(cls).range(line.from))
       pos = line.to + 1
@@ -367,7 +385,9 @@ export function previewDecorations(state: EditorState): DecorationSet {
         }
         case 'URL':
           // A bare URL (GFM autolink); the ones inside links are handled above.
-          if (node.parent?.name !== 'Link' && node.parent?.name !== 'Image') add(markClass('cm-lp-link'), node.from, node.to)
+          if (node.parent?.name !== 'Link' && node.parent?.name !== 'Image') {
+            add(markClass('cm-lp-link'), node.from, node.to)
+          }
           return
         case 'Image':
           add(markClass('cm-lp-url'), node.from, node.to)
@@ -436,7 +456,9 @@ export function previewDecorations(state: EditorState): DecorationSet {
           const to = doc.lineAt(node.to).to
           // In a list or quote it stays text (a block widget there would swallow the > / - marks).
           if (node.parent?.name === 'Document' && !onLines(from, to)) {
-            out.push(Decoration.replace({ widget: new TableWidget(tableModel(state, node)), block: true }).range(from, to))
+            out.push(
+              Decoration.replace({ widget: new TableWidget(tableModel(state, node)), block: true }).range(from, to)
+            )
             return false
           }
           addLines('cm-lp-table-src', from, to)
@@ -534,7 +556,12 @@ export function livePreview(): Extension {
     EditorView.focusChangeEffect.of((_state, focusing) => setFocused.of(focusing)),
     toggleTask,
     editTable,
-    Prec.high(keymap.of([{ key: 'ArrowDown', run: enterTableDown }, { key: 'ArrowUp', run: enterTableUp }]))
+    Prec.high(
+      keymap.of([
+        { key: 'ArrowDown', run: enterTableDown },
+        { key: 'ArrowUp', run: enterTableUp }
+      ])
+    )
   ]
 }
 

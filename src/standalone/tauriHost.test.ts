@@ -21,7 +21,6 @@ vi.mock('@tauri-apps/api/event', () => ({
 }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: async () => null }))
 
-
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
 /** Like the Rust `open_path`: "C:\dir\name" → the folder handle + the name. */

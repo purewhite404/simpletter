@@ -91,7 +91,7 @@ export function charWidth(code: number): number {
   if (code < 0x1100) return 1
   if (code === BOM) return 0 // it takes no room
   if (
-    (code <= 0x115f) || // Hangul Jamo
+    code <= 0x115f || // Hangul Jamo
     (code >= 0x2e80 && code <= 0xa4cf && code !== 0x303f) || // CJK … Yi
     (code >= 0xac00 && code <= 0xd7a3) || // Hangul syllables
     (code >= 0xf900 && code <= 0xfaff) || // CJK compatibility ideographs
@@ -146,7 +146,7 @@ export function scanDoc(doc: Text, delim: Delimiter): CsvModel {
   const multi: CsvModel['multi'] = []
   let pos = 0
   let recordFrom = -1 // ≥ 0 while inside a record over several lines
-  for (const iter = doc.iterLines(); !iter.next().done; ) {
+  for (const iter = doc.iterLines(); !iter.next().done;) {
     const text = iter.value
     const inQuote = recordFrom >= 0
     const { fields, open } = parseLine(text, delim, inQuote)

@@ -32,7 +32,9 @@ function run(text: string, ...steps: Step[]): string {
   }
   const out = state.doc.toString()
   const { from, to } = state.selection.main
-  return from === to ? out.slice(0, from) + '‸' + out.slice(from) : out.slice(0, from) + '‸' + out.slice(from, to) + '‸' + out.slice(to)
+  return from === to
+    ? out.slice(0, from) + '‸' + out.slice(from)
+    : out.slice(0, from) + '‸' + out.slice(from, to) + '‸' + out.slice(to)
 }
 
 describe('Tab / Shift+Tab', () => {

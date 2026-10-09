@@ -15,7 +15,15 @@
 // whole file once (StateField), widened as lines are edited and read again a moment
 // after typing stops; decorations are only made for the lines in view (ViewPlugin).
 
-import { Facet, StateEffect, StateField, type EditorState, type Extension, type Range, type StateCommand } from '@codemirror/state'
+import {
+  Facet,
+  StateEffect,
+  StateField,
+  type EditorState,
+  type Extension,
+  type Range,
+  type StateCommand
+} from '@codemirror/state'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { fieldWidth, fitLine, parseLine, quoteMarks, scanDoc, type CsvModel, type Delimiter } from './csv'
 
@@ -40,7 +48,7 @@ const modelField = StateField.define<CsvModel>({
     const widths = [...model.widths]
     const doc = tr.state.doc
     tr.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
-      for (let pos = fromB; pos <= toB; ) {
+      for (let pos = fromB; pos <= toB;) {
         const line = doc.lineAt(pos)
         if (!inMulti(multi, line.from, line.to)) {
           const { fields, open } = parseLine(line.text, delim)
@@ -70,7 +78,10 @@ function inMulti(multi: CsvModel['multi'], from: number, to: number): boolean {
  * (a tab character's own width would vary); a hidden quote isn't drawn at all (the `hide` replacement).
  */
 class MarkWidget extends WidgetType {
-  constructor(readonly text: string, readonly sep: boolean) {
+  constructor(
+    readonly text: string,
+    readonly sep: boolean
+  ) {
     super()
   }
   eq(other: MarkWidget): boolean {
@@ -90,7 +101,10 @@ class MarkWidget extends WidgetType {
 const hide = Decoration.replace({})
 const widget = (text: string, sep: boolean) => Decoration.replace({ widget: new MarkWidget(text, sep) })
 /** [hidden, shown] */
-const SEP: Record<Delimiter, Decoration[]> = { ',': [widget('', true), widget(',', true)], '\t': [widget('', true), widget('→', true)] }
+const SEP: Record<Delimiter, Decoration[]> = {
+  ',': [widget('', true), widget(',', true)],
+  '\t': [widget('', true), widget('→', true)]
+}
 const shownQuote = widget('"', false)
 const row = Decoration.line({ class: 'cm-csv-row' })
 const activeRow = Decoration.line({ class: 'cm-csv-row cm-csv-active' })
@@ -116,14 +130,18 @@ function cell(width: number): Decoration {
 }
 
 /** The table view's decorations for the lines in `ranges` (exported for tests). */
-export function csvDecorations(state: EditorState, ranges: readonly { from: number; to: number }[], focused: boolean): DecorationSet {
+export function csvDecorations(
+  state: EditorState,
+  ranges: readonly { from: number; to: number }[],
+  focused: boolean
+): DecorationSet {
   const doc = state.doc
   const delim = state.facet(delimiter)
   const model = state.field(modelField)
   const selection = focused ? state.selection.ranges : []
   const out: Range<Decoration>[] = []
   for (const range of ranges) {
-    for (let pos = range.from; pos <= range.to; ) {
+    for (let pos = range.from; pos <= range.to;) {
       const line = doc.lineAt(pos)
       pos = line.to + 1
       const { fields, open } = parseLine(line.text, delim)
@@ -139,7 +157,9 @@ export function csvDecorations(state: EditorState, ranges: readonly { from: numb
         const width = model.widths[i] ?? fieldWidth(line.text, f, i)
         if (to > from) out.push(cell(width).range(from, to))
         if (i > 0) out.push(SEP[delim][Number(active)].range(from, from + 1))
-        for (const q of quoteMarks(line.text, f)) out.push((active ? shownQuote : hide).range(line.from + q, line.from + q + 1))
+        for (const q of quoteMarks(line.text, f)) {
+          out.push((active ? shownQuote : hide).range(line.from + q, line.from + q + 1))
+        }
       })
     }
   }

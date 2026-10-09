@@ -43,7 +43,11 @@ function extensions(kind: EditorKind, onChange: () => void): Extension[] {
   }
   const common: Extension[] = [...base, EditorView.lineWrapping, placeholder(PLACEHOLDER)]
   if (kind === 'plain') {
-    return [...common, EditorView.editorAttributes.of({ class: 'cm-plain' }), keymap.of([...defaultKeymap, ...historyKeymap])]
+    return [
+      ...common,
+      EditorView.editorAttributes.of({ class: 'cm-plain' }),
+      keymap.of([...defaultKeymap, ...historyKeymap])
+    ]
   }
   return [
     ...common,

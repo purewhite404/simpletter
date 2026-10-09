@@ -36,7 +36,11 @@ void getCurrentWindow().onCloseRequested(async (event) => {
     await (await notes).flush()
   } catch (err) {
     showError(err)
-    if (!(await confirm(`保存できませんでした。保存せずに閉じますか？\n\n${err instanceof Error ? err.message : String(err)}`))) {
+    if (
+      !(await confirm(
+        `保存できませんでした。保存せずに閉じますか？\n\n${err instanceof Error ? err.message : String(err)}`
+      ))
+    ) {
       event.preventDefault()
     }
   }

@@ -51,7 +51,9 @@ function renumber(state: EditorState, tree: Tree, itemLines: number[]): ChangeSp
       const digits = mark && /^\d+/.exec(state.sliceDoc(mark.from, mark.to))
       if (!mark || !digits) continue
       next ??= Number(digits[0])
-      if (Number(digits[0]) !== next) changes.push({ from: mark.from, to: mark.from + digits[0].length, insert: String(next) })
+      if (Number(digits[0]) !== next) {
+        changes.push({ from: mark.from, to: mark.from + digits[0].length, insert: String(next) })
+      }
       next++
     }
   }
@@ -105,7 +107,13 @@ function shiftItems(dir: 1 | -1): StateCommand {
     }
     const moved = state.changes(changes)
     const mid = state.update({ changes: moved }).state
-    const numbers = mid.changes(renumber(mid, treeOf(mid), roots.map((r) => doc.lineAt(r.from).number)))
+    const numbers = mid.changes(
+      renumber(
+        mid,
+        treeOf(mid),
+        roots.map((r) => doc.lineAt(r.from).number)
+      )
+    )
     const all = moved.compose(numbers)
     dispatch(
       state.update({

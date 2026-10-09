@@ -18,7 +18,8 @@ function type(value: string): void {
   input.value = value
   input.dispatchEvent(new Event('input'))
 }
-const options = () => [...bar.element.querySelectorAll('li')].map((li) => li.querySelector('.folderbar-option-path')!.textContent)
+const options = () =>
+  [...bar.element.querySelectorAll('li')].map((li) => li.querySelector('.folderbar-option-path')!.textContent)
 const error = () => bar.element.querySelector<HTMLElement>('.folderbar-error')!
 
 beforeEach(() => {
@@ -27,7 +28,9 @@ beforeEach(() => {
   bar = new FolderBar({
     suggest,
     submit: async (path) => {
-      if (!FOLDERS.includes(path.endsWith('/') ? path : path + '/')) throw new Error(`フォルダが見つかりません: ${path}`)
+      if (!FOLDERS.includes(path.endsWith('/') ? path : path + '/')) {
+        throw new Error(`フォルダが見つかりません: ${path}`)
+      }
       submitted.push(path)
       bar.setPath(path)
     },

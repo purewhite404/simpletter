@@ -2,23 +2,42 @@ import { expect, test } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { answerConfirm, dialogs, editor, launch, removeDir, row, rows, stubDialogs, tempDir, typeFolder } from './helpers'
+import {
+  answerConfirm,
+  dialogs,
+  editor,
+  launch,
+  removeDir,
+  row,
+  rows,
+  stubDialogs,
+  tempDir,
+  typeFolder
+} from './helpers'
 
-const mdFiles = (dir: string) => readdirSync(dir).filter((n) => n.endsWith('.md')).sort()
+const mdFiles = (dir: string) =>
+  readdirSync(dir)
+    .filter((n) => n.endsWith('.md'))
+    .sort()
 
 test('under test the window is off every display, without the focus, and still paints', async () => {
   const app = await launch()
   try {
     const state = await app.page.evaluate(async () => {
       type Rect = { x: number; y: number; width: number; height: number }
-      const invoke = (window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, args?: object) => Promise<unknown> } })
-        .__TAURI_INTERNALS__.invoke
+      const invoke = (
+        window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, args?: object) => Promise<unknown> } }
+      ).__TAURI_INTERNALS__.invoke
       const win = (cmd: string) => invoke(`plugin:window|${cmd}`, { label: 'main' })
       const pos = (await win('outer_position')) as { x: number; y: number }
       const size = (await win('outer_size')) as { width: number; height: number }
-      const monitors = (await win('available_monitors')) as { position: { x: number; y: number }; size: { width: number; height: number } }[]
+      const monitors = (await win('available_monitors')) as {
+        position: { x: number; y: number }
+        size: { width: number; height: number }
+      }[]
       const b: Rect = { ...pos, ...size }
-      const overlaps = (d: Rect) => b.x < d.x + d.width && d.x < b.x + b.width && b.y < d.y + d.height && d.y < b.y + b.height
+      const overlaps = (d: Rect) =>
+        b.x < d.x + d.width && d.x < b.x + b.width && b.y < d.y + d.height && d.y < b.y + b.height
       // Off screen must not mean "hidden" (CalculateNativeWinOcclusion is off): frames still come.
       const frames = await new Promise<number>((done) => {
         let n = 0
@@ -34,7 +53,13 @@ test('under test the window is off every display, without the focus, and still p
         frames
       }
     })
-    expect(state).toEqual({ visible: true, focused: false, overlapsADisplay: false, visibilityState: 'visible', frames: 3 })
+    expect(state).toEqual({
+      visible: true,
+      focused: false,
+      overlapsADisplay: false,
+      visibilityState: 'visible',
+      frames: 3
+    })
   } finally {
     await app.close()
   }
@@ -159,7 +184,9 @@ test('live preview: markup shows only on the cursor line; checkboxes and lists w
     await page.keyboard.press('End')
     await page.keyboard.press('Enter')
     await page.keyboard.type('次の項目')
-    await expect.poll(() => readFileSync(file, 'utf-8')).toBe('# Title\n\nSome **bold** text\n\n- [x] milk\n- item\n- 次の項目\n')
+    await expect
+      .poll(() => readFileSync(file, 'utf-8'))
+      .toBe('# Title\n\nSome **bold** text\n\n- [x] milk\n- item\n- 次の項目\n')
     expect(app.pageErrors).toEqual([])
   } finally {
     await app.close().finally(() => removeDir(dir))
@@ -233,7 +260,21 @@ test('lists: Tab goes 4 spaces in and numbers from 1; Enter twice comes back and
     await typeFolder(page, dir)
     await page.locator('#content .cm-line', { hasText: 'a' }).click()
     await page.keyboard.press('End')
-    for (const key of ['Enter', 'b', 'Enter', 'Tab', 'c', 'Enter', 'd', 'Enter', 'Enter', 'e', 'Enter', 'Tab', 'Shift+Tab']) {
+    for (const key of [
+      'Enter',
+      'b',
+      'Enter',
+      'Tab',
+      'c',
+      'Enter',
+      'd',
+      'Enter',
+      'Enter',
+      'e',
+      'Enter',
+      'Tab',
+      'Shift+Tab'
+    ]) {
       if (key.length === 1) await page.keyboard.type(key)
       else await page.keyboard.press(key)
     }
@@ -266,10 +307,15 @@ test('CSV / TSV: listed and drawn as lined-up cells; a click types into the cell
     /** Where each row's second column starts (they line up) and how wide the first column is. */
     const layout = async () => {
       const boxes = await Promise.all([0, 1, 2, 3, 4, 5].map(async (i) => (await cells.nth(i).boundingBox())!))
-      return { secondX: new Set([1, 3, 5].map((i) => Math.round(boxes[i].x))).size, firstW: new Set([0, 2, 4].map((i) => Math.round(boxes[i].width))).size }
+      return {
+        secondX: new Set([1, 3, 5].map((i) => Math.round(boxes[i].x))).size,
+        firstW: new Set([0, 2, 4].map((i) => Math.round(boxes[i].width))).size
+      }
     }
     expect(await layout()).toEqual({ secondX: 1, firstW: 1 })
-    const heights = await page.locator('#content .cm-csv-row').evaluateAll((rs) => rs.slice(0, 3).map((r) => r.getBoundingClientRect().height))
+    const heights = await page
+      .locator('#content .cm-csv-row')
+      .evaluateAll((rs) => rs.slice(0, 3).map((r) => r.getBoundingClientRect().height))
     expect(Math.max(...heights)).toBeLessThan(Math.min(...heights) * 1.5) // nothing wrapped onto a 2nd line
     await expect(cells.nth(2)).toHaveText('りんご, 赤') // the quotes are hidden
     await expect(cells.nth(3).locator('.cm-csv-sep')).toHaveText('') // the delimiter: there (its 1 ch), not seen
@@ -326,12 +372,17 @@ test('CSV: Japanese typed with the IME goes into the cell at the cursor; the row
     const line = (n: number) => page.locator('#content .cm-line').nth(n)
     /** Converts 「にほん」 to 「日本」 at the cursor; during it: the cell the text is in, where the row's cells start. */
     const compose = async (n: number) => {
-      const lefts = () => line(n).locator('.cm-csv-cell').evaluateAll((cs) => cs.map((c) => Math.round(c.getBoundingClientRect().left)))
+      const lefts = () =>
+        line(n)
+          .locator('.cm-csv-cell')
+          .evaluateAll((cs) => cs.map((c) => Math.round(c.getBoundingClientRect().left)))
       const before = await lefts()
       for (const text of ['に', 'にほ', 'にほん']) {
         await cdp.send('Input.imeSetComposition', { text, selectionStart: text.length, selectionEnd: text.length })
       }
-      const cell = await page.evaluate(() => getSelection()!.anchorNode!.parentElement!.closest('.cm-csv-cell')?.textContent ?? null)
+      const cell = await page.evaluate(
+        () => getSelection()!.anchorNode!.parentElement!.closest('.cm-csv-cell')?.textContent ?? null
+      )
       expect(await lefts()).toEqual(before)
       await cdp.send('Input.insertText', { text: '日本' })
       return cell
@@ -388,7 +439,11 @@ test('the bar explains a wrong path and completes subfolders from the disk', asy
 test('the folder and the sort order survive a restart', async () => {
   const profile = tempDir('simpletter-e2e-profile-')
   const dir = tempDir('simpletter-sort-')
-  for (const [name, daysAgo] of [['old', 3], ['new', 1], ['mid', 2]] as const) {
+  for (const [name, daysAgo] of [
+    ['old', 3],
+    ['new', 1],
+    ['mid', 2]
+  ] as const) {
     const file = join(dir, `${name}.md`)
     writeFileSync(file, name)
     const when = new Date(Date.now() - daysAgo * 86_400_000)

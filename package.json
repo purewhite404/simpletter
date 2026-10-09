@@ -11,6 +11,8 @@
     "build:brighterm": "tsc && vite build --config vite.brighterm.config.ts",
     "bump": "node scripts/version.mjs",
     "typecheck": "tsc && tsc -p tsconfig.node.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
     "tauri": "tauri",
@@ -31,6 +33,7 @@
     "@tauri-apps/cli": "^2",
     "@types/node": "^26.6.4",
     "happy-dom": "^20.14.5",
+    "prettier": "3.9.9",
     "typescript": "~6.0.3",
     "vite": "^8.0.16",
     "vitest": "^5.0.3"

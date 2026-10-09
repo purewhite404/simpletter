@@ -1,10 +1,9 @@
-import { defineConfig } from "vite";
-import process from "node:process";
-const host = process.env.TAURI_DEV_HOST;
+import { defineConfig } from 'vite'
+import process from 'node:process'
+const host = process.env.TAURI_DEV_HOST
 
 // https://vite.dev/config/
 export default defineConfig(() => ({
-
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors
@@ -16,14 +15,14 @@ export default defineConfig(() => ({
     host: host || false,
     hmr: host
       ? {
-          protocol: "ws",
+          protocol: 'ws',
           host,
-          port: 1421,
+          port: 1421
         }
       : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
-    },
-  },
-}));
+      ignored: ['**/src-tauri/**']
+    }
+  }
+}))

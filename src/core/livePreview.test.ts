@@ -37,7 +37,13 @@ function shown(text: string): string {
   previewDecorations(state).between(0, doc.length, (from, to, deco) => {
     if (deco.spec.class || deco.spec.attributes || (!deco.spec.widget && from === to)) return // marks and lines
     const widget = deco.spec.widget as { constructor: { name: string }; checked?: boolean } | undefined
-    const symbol = !widget ? '' : 'checked' in widget ? (widget.checked ? '☑' : '☐') : WIDGET_TEXT[widget.constructor.name]
+    const symbol = !widget
+      ? ''
+      : 'checked' in widget
+        ? widget.checked
+          ? '☑'
+          : '☐'
+        : WIDGET_TEXT[widget.constructor.name]
     replaced.push({ from, to, text: symbol })
   })
   let out = ''
@@ -176,7 +182,8 @@ describe('tables', () => {
     return tableModel(state, node)
   }
   /** Each row's cells as shown (header first). */
-  const cellTexts = (m: TableModel) => [m.head, ...m.rows.map((r) => r.cells)].map((cells) => cells.map((c) => c.parts.map((p) => p.text).join('')))
+  const cellTexts = (m: TableModel) =>
+    [m.head, ...m.rows.map((r) => r.cells)].map((cells) => cells.map((c) => c.parts.map((p) => p.text).join('')))
 
   it('a table becomes one widget unless the cursor is on its lines (unfocused: always)', () => {
     expect(shown(`before\n\n${TABLE}\n\nafter‸`)).toBe('before\n\n[table]\n\nafter')
@@ -187,7 +194,11 @@ describe('tables', () => {
   it('with the cursor inside: the raw text, mono lines, a faint delimiter row; inline marks stay raw', () => {
     const text = '| **a** | b |\n|---|---|\n| 1| 2 |'
     expect(shown('| **a** | b |\n|---|---|\n| 1| 2 |'.replace('1', '1‸'))).toBe(text)
-    expect(lineClasses(text.replace('1', '1‸'))).toEqual(['cm-lp-table-src', 'cm-lp-table-src cm-lp-table-delim', 'cm-lp-table-src'])
+    expect(lineClasses(text.replace('1', '1‸'))).toEqual([
+      'cm-lp-table-src',
+      'cm-lp-table-src cm-lp-table-delim',
+      'cm-lp-table-src'
+    ])
     expect(marked(text.replace('1', '1‸'), 'cm-lp-table-pipe')).toHaveLength(6)
   })
 
@@ -219,8 +230,15 @@ describe('tables', () => {
   it('model: cells, alignment, Japanese text', () => {
     const m = model('| 左 | 中 | 右 | 無 |\n|:--|:-:|--:|---|\n| a | b | c | d |')
     expect(m.align).toEqual(['left', 'center', 'right', null])
-    expect(cellTexts(m)).toEqual([['左', '中', '右', '無'], ['a', 'b', 'c', 'd']])
-    expect(cellTexts(model(TABLE))).toEqual([['名前', '数'], ['りんご', '3'], ['みかん', '10']])
+    expect(cellTexts(m)).toEqual([
+      ['左', '中', '右', '無'],
+      ['a', 'b', 'c', 'd']
+    ])
+    expect(cellTexts(model(TABLE))).toEqual([
+      ['名前', '数'],
+      ['りんご', '3'],
+      ['みかん', '10']
+    ])
   })
 
   it('model: positions point into the source, relative to the first line', () => {
@@ -255,7 +273,12 @@ describe('tables', () => {
   it('model: empty cells, and rows with too few or too many cells', () => {
     const text = '| a | b | c |\n|---|---|---|\n|  | x |\n| 1 | 2 | 3 | 4 |\n|||y|'
     const m = model(text)
-    expect(cellTexts(m)).toEqual([['a', 'b', 'c'], ['', 'x', ''], ['1', '2', '3'], ['', '', 'y']])
+    expect(cellTexts(m)).toEqual([
+      ['a', 'b', 'c'],
+      ['', 'x', ''],
+      ['1', '2', '3'],
+      ['', '', 'y']
+    ])
     const base = 0
     const empty = m.rows[0].cells[0]
     expect(empty.from).toBe(empty.to)

@@ -9,7 +9,11 @@ import type { FolderBar } from './folderBar'
  * (src-tauri/src/lib.rs), settings in localStorage, and the folder bar drawn
  * by this window. A folder handle's id is the folder's absolute path.
  */
-export function createTauriHost(): { host: NotesHost; attachFolderBar: (bar: FolderBar) => void; changeFolder: (input: string) => Promise<void> } {
+export function createTauriHost(): {
+  host: NotesHost
+  attachFolderBar: (bar: FolderBar) => void
+  changeFolder: (input: string) => Promise<void>
+} {
   const folderListeners = new Set<(folder: FolderHandle) => void>()
   let bar: FolderBar | null = null
 

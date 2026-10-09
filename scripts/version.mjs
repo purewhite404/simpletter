@@ -18,7 +18,10 @@ const FILES = [
   ['package.json', /^(  "version": ")(\d+\.\d+\.\d+)"/m],
   // The root's version, then packages[""]'s — the first two in the file.
   ['package-lock.json', /^(  "version": ")(\d+\.\d+\.\d+)"/m],
-  ['package-lock.json', /^(  "packages": \{\n    "": \{\n      "name": "simpletter",\n      "version": ")(\d+\.\d+\.\d+)"/m],
+  [
+    'package-lock.json',
+    /^(  "packages": \{\n    "": \{\n      "name": "simpletter",\n      "version": ")(\d+\.\d+\.\d+)"/m
+  ],
   ['src-tauri/tauri.conf.json', /^(  "version": ")(\d+\.\d+\.\d+)"/m],
   ['src-tauri/Cargo.toml', /^(\[package\]\nname = "simpletter"\nversion = ")(\d+\.\d+\.\d+)"/m],
   ['src-tauri/Cargo.lock', /^(\[\[package\]\]\nname = "simpletter"\nversion = ")(\d+\.\d+\.\d+)"/m]
@@ -33,7 +36,9 @@ function current() {
     return [file, m[2]]
   })
   const versions = new Set(found.map(([, v]) => v))
-  if (versions.size > 1) throw new Error('バージョンがそろっていません:\n' + found.map(([f, v]) => `  ${f}: ${v}`).join('\n'))
+  if (versions.size > 1) {
+    throw new Error('バージョンがそろっていません:\n' + found.map(([f, v]) => `  ${f}: ${v}`).join('\n'))
+  }
   return found[0][1]
 }
 

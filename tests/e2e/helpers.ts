@@ -126,7 +126,8 @@ export async function stubDialogs(page: Page): Promise<void> {
     }
   })
 }
-export const dialogs = (page: Page): Promise<string[]> => page.evaluate(() => (window as unknown as { __dialogs: string[] }).__dialogs)
+export const dialogs = (page: Page): Promise<string[]> =>
+  page.evaluate(() => (window as unknown as { __dialogs: string[] }).__dialogs)
 export const answerConfirm = (page: Page, ok: boolean): Promise<void> =>
   page.evaluate((v) => void ((window as unknown as { __confirm: boolean }).__confirm = v), ok)
 

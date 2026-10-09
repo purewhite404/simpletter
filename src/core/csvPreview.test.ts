@@ -62,11 +62,19 @@ function shown(text: string, delim: ',' | '\t' = ','): string[] {
 
 describe('csvDecorations', () => {
   it('unfocused: every line a row, quotes and delimiters hidden, columns as wide as their widest field', () => {
-    expect(shown('name,qty\n"りんご, 赤",3\n"say ""hi""",')).toEqual(['name·12 | qty·4', 'りんご, 赤·12 | 3·4', 'say "hi"·12 | ·4'])
+    expect(shown('name,qty\n"りんご, 赤",3\n"say ""hi""",')).toEqual([
+      'name·12 | qty·4',
+      'りんご, 赤·12 | 3·4',
+      'say "hi"·12 | ·4'
+    ])
   })
 
   it("on the cursor's line the quotes and delimiters show; the widths stay", () => {
-    expect(shown('name,qty\n"りんご, 赤",3‸\nx,y')).toEqual(['name·12 | qty·4', '* "りんご, 赤"·12 | ,3·4', 'x·12 | y·4'])
+    expect(shown('name,qty\n"りんご, 赤",3‸\nx,y')).toEqual([
+      'name·12 | qty·4',
+      '* "りんご, 赤"·12 | ,3·4',
+      'x·12 | y·4'
+    ])
   })
 
   it('a cell starts with the delimiter before it: an empty one in the middle or at the end is there too', () => {
@@ -107,7 +115,10 @@ describe('the model while editing', () => {
 })
 
 it("Tab: the file's delimiter (a tab in TSV, a comma in CSV), also over a selection", () => {
-  for (const [delim, out] of [['\t', 'a\t'], [',', 'a,']] as const) {
+  for (const [delim, out] of [
+    ['\t', 'a\t'],
+    [',', 'a,']
+  ] as const) {
     let state = EditorState.create({ doc: 'ab', selection: EditorSelection.range(1, 2), extensions: csvPreview(delim) })
     insertDelimiter({ state, dispatch: (tr) => (state = tr.state) })
     expect(state.doc.toString()).toBe(out)

@@ -28,7 +28,7 @@ function fakeHost(folders: Record<string, Folder>, saved: Record<string, unknown
   let clock = 1_000
   const host: NotesHost = {
     storage: {
-      get: async <T,>(k: string) => (storage.has(k) ? (structuredClone(storage.get(k)) as T) : null),
+      get: async <T>(k: string) => (storage.has(k) ? (structuredClone(storage.get(k)) as T) : null),
       set: async (k, v) => void storage.set(k, structuredClone(v))
     },
     fs: {
@@ -68,7 +68,8 @@ function fakeHost(folders: Record<string, Folder>, saved: Record<string, unknown
 const handle = (id: string): FolderHandle => ({ id, label: id })
 const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector(sel) as T
 const rows = () => [...document.querySelectorAll('.file-row')].map((r) => r.textContent)
-const row = (text: string) => [...document.querySelectorAll<HTMLElement>('.file-row')].find((r) => r.textContent === text)!
+const row = (text: string) =>
+  [...document.querySelectorAll<HTMLElement>('.file-row')].find((r) => r.textContent === text)!
 const names = (f: Folder) => Object.keys(f).sort()
 
 function type(el: HTMLInputElement, value: string): void {
@@ -88,7 +89,9 @@ function typeContent(value: string): void {
 /** Right-click `rowText`, then click `item` in the menu. */
 async function menuItem(rowText: string, item: string): Promise<void> {
   row(rowText).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 10, clientY: 10 }))
-  const button = [...document.querySelectorAll<HTMLButtonElement>('.ctx-menu button')].find((b) => b.textContent === item)
+  const button = [...document.querySelectorAll<HTMLButtonElement>('.ctx-menu button')].find(
+    (b) => b.textContent === item
+  )
   if (!button) throw new Error(`no "${item}" in the menu`)
   button.click()
   await settle()
@@ -124,7 +127,11 @@ describe('folder', () => {
   })
 
   it('a saved folder is listed again; a stale one asks again', async () => {
-    const a: Folder = { 'b.md': { content: 'B', modifiedAt: 1 }, 'a.md': { content: 'A', modifiedAt: 2 }, 'x.txt': { content: '', modifiedAt: 1 } }
+    const a: Folder = {
+      'b.md': { content: 'B', modifiedAt: 1 },
+      'a.md': { content: 'A', modifiedAt: 2 },
+      'x.txt': { content: '', modifiedAt: 1 }
+    }
     let s = fakeHost({ A: a }, { folderHandle: handle('A') })
     await startNotes(root(), s.host)
     expect($('#notes-screen').hidden).toBe(false)
@@ -138,7 +145,9 @@ describe('folder', () => {
   })
 
   it('a folder from the bar: its first note opens, and it is remembered', async () => {
-    const { host, state, storage } = fakeHost({ A: { 'z.md': { content: 'Z', modifiedAt: 1 }, 'm.md': { content: 'M', modifiedAt: 1 } } })
+    const { host, state, storage } = fakeHost({
+      A: { 'z.md': { content: 'Z', modifiedAt: 1 }, 'm.md': { content: 'M', modifiedAt: 1 } }
+    })
     await startNotes(root(), host)
     state.changeFolder(handle('A'))
     await vi.waitFor(() => expect(content()).toBe('M'))
@@ -332,7 +341,10 @@ describe('editing', () => {
   })
 
   it('the title field renames the note, but never over another one', async () => {
-    const a: Folder = { 'note.md': { content: 'my note', modifiedAt: 1 }, 'other.md': { content: 'other', modifiedAt: 1 } }
+    const a: Folder = {
+      'note.md': { content: 'my note', modifiedAt: 1 },
+      'other.md': { content: 'other', modifiedAt: 1 }
+    }
     const { host } = fakeHost({ A: a }, { folderHandle: handle('A') })
     await startNotes(root(), host)
     row('note').click()
@@ -381,12 +393,20 @@ describe('editor', () => {
     await startNotes(root(), host)
     row('t').click()
     await vi.waitFor(() => expect($('#content .cm-lp-table')).not.toBeNull())
-    const cells = () => [...document.querySelectorAll<HTMLElement>('#content .cm-lp-table tr')].map((tr) => [...tr.children].map((c) => c.textContent))
-    expect(cells()).toEqual([['品物', '数'], ['りんご', '3'], ['', '5']])
+    const cells = () =>
+      [...document.querySelectorAll<HTMLElement>('#content .cm-lp-table tr')].map((tr) =>
+        [...tr.children].map((c) => c.textContent)
+      )
+    expect(cells()).toEqual([
+      ['品物', '数'],
+      ['りんご', '3'],
+      ['', '5']
+    ])
     expect($('#content .cm-lp-table td .cm-lp-strong')?.textContent).toBe('りんご')
     expect($<HTMLElement>('#content .cm-lp-table th:last-child').style.textAlign).toBe('right')
 
-    const click = (el: HTMLElement) => el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
+    const click = (el: HTMLElement) =>
+      el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
     const cursor = () => editorView().state.selection.main.head
     click([...document.querySelectorAll<HTMLElement>('#content .cm-lp-table td')][0])
     expect(text.slice(0, cursor())).toMatch(/\| \*\*りんご$/) // after the cell's text (inside the **)
@@ -420,7 +440,10 @@ describe('editor', () => {
     expect(dir['data.csv'].modifiedAt).toBe(1) // opening is not an edit
 
     const view = editorView()
-    view.dispatch({ changes: { from: csv.indexOf('3'), to: csv.indexOf('3') + 1, insert: '12' }, userEvent: 'input.type' })
+    view.dispatch({
+      changes: { from: csv.indexOf('3'), to: csv.indexOf('3') + 1, insert: '12' },
+      userEvent: 'input.type'
+    })
     await vi.waitFor(() => expect(dir['data.csv'].content).toBe('name,qty\n"apple, red",12\n'), { timeout: 2000 })
 
     row('t.TSV').click()
@@ -509,7 +532,10 @@ describe('menu', () => {
   })
 
   it('rename in place: Esc, unchanged, case only, taken name, real rename; delete asks first', async () => {
-    const dir: Folder = { 'note.md': { content: 'my note', modifiedAt: 1 }, 'other.md': { content: 'other note', modifiedAt: 1 } }
+    const dir: Folder = {
+      'note.md': { content: 'my note', modifiedAt: 1 },
+      'other.md': { content: 'other note', modifiedAt: 1 }
+    }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
     await startNotes(root(), host)
     row('note').click()

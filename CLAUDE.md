@@ -18,9 +18,16 @@ Talk to the user in Japanese. Commit messages in English (user's request, 2026-1
 | `npm run test:e2e` | debug build, then Playwright drives the real exe over CDP (~10 s) |
 | `npm run build:brighterm` | the UI as Brighterm's Notes plugin → `dist-brighterm/` |
 | `npm run tauri build` | release + NSIS installer |
+| `npm run format` | Prettier over the TS / JS / CSS / JSON (`format:check` = only check); Rust: `cargo fmt` in `src-tauri` |
 
 What to run: logic → typecheck + unit (+ rust if `src-tauri` changed); UI → also e2e;
-before a commit → all of them.
+before a commit → all of them, and `npm run format:check` + `cargo fmt --check`.
+
+Style (2026-10-09, user's choice: a formatter rather than by hand): Prettier `.prettierrc.json` (single quotes,
+no semicolons, 120 columns, `endOfLine: auto` — the checkout is CRLF/LF mixed with `autocrlf=true`), rustfmt
+`src-tauri/rustfmt.toml` (120 columns). Brace an `if`/`for` body that Prettier would put on a line of its own.
+`.prettierignore` keeps Brighterm's copies (`tokens.css`, `folderBarText*.ts`) and `*.md` untouched.
+Icons: only what the NSIS build uses (32x32, 128x128, 128x128@2x, icon.ico) — `tauri icon` makes the full set.
 
 ### Versions (user's request, 2026-10-09: decide and bump them myself)
 

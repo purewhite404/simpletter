@@ -1,0 +1,16 @@
+# Build / test output, generated files
+dist
+dist-brighterm
+test-results
+playwright-report
+src-tauri/target
+src-tauri/gen
+package-lock.json
+
+# Prose: Prettier would re-align the tables
+*.md
+
+# Copies of Brighterm's files, kept identical to its own
+src/standalone/tokens.css
+src/standalone/folderBarText.ts
+src/standalone/folderBarText.test.ts
