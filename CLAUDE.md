@@ -224,5 +224,10 @@ installed build's csv association.
 
 Done (2026-10-09): e2e windows really off screen (see Gotchas). e2e 11, all pass off screen.
 
+Done (2026-10-09): saving fixes (see Gotchas: switching notes, close, atomic write) → 0.2.1 (patch, tag v0.2.1,
+installer built). Checked by hand by the user with the installed 0.2.1: typing then Alt+F4 at once keeps the
+text; opening CRLF .md / .csv, moving the cursor and clicking a table leaves them untouched (mtime, CRLF).
+Tests: Vitest 92, Rust 16, e2e 12. Not pushed.
+
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons).
