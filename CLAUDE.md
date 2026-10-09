@@ -46,7 +46,7 @@ not bumped with the app.
 - 1.0.0 only when the user says so.
 Then: all checks → `npm run bump -- …` → commit `simpletter: x.y.z` (body: what's in it since the last
 tag, in English) → `git tag -a vx.y.z` → build. Tell the user which bump and why (they can overrule).
-No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0, v0.2.1.
+No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0, v0.2.1, v0.2.2.
 
 ### From WSL
 
@@ -247,7 +247,8 @@ once, folder completions sorted with `sort_by_cached_key`; Prettier + rustfmt (s
 `errorText`, `closeNote` / `cancelSave`, decorations made once per class, unused exports / params / CSS gone,
 `vite.config.ts` without the mobile `TAURI_DEV_HOST` part. Fix: **`.markdown` files are notes** (associated by
 the installer, but opened as plain text and not listed before) → the next release is at least a **patch**.
-Tests: Vitest 94, Rust 16, e2e 12. Not pushed, no version bump yet.
+Tests: Vitest 94, Rust 16, e2e 12. → 0.2.2 (patch, tag v0.2.2, installer built). Not pushed.
+Not yet checked by hand: the installed 0.2.2 opening a double-clicked `.markdown`.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).
