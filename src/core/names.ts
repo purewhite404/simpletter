@@ -11,21 +11,34 @@ export type SortOrder = (typeof SORT_ORDERS)[number]
 
 export const isSortOrder = (value: unknown): value is SortOrder => SORT_ORDERS.includes(value as SortOrder)
 
-export const isMarkdown = (name: string): boolean => name.toLowerCase().endsWith('.md')
-
 /** How a file is shown: a note (live preview), a table (CSV / TSV) or plain text. */
 export type FileKind = 'markdown' | 'csv' | 'tsv' | 'plain'
 
+const KINDS = new Map<string, FileKind>([
+  ['md', 'markdown'],
+  ['markdown', 'markdown'],
+  ['csv', 'csv'],
+  ['tsv', 'tsv']
+])
+
 export function fileKind(name: string): FileKind {
-  const ext = /\.([^.]*)$/.exec(name.toLowerCase())?.[1]
-  return ext === 'md' ? 'markdown' : ext === 'csv' ? 'csv' : ext === 'tsv' ? 'tsv' : 'plain'
+  const ext = /\.([^.]*)$/.exec(name.toLowerCase())?.[1] ?? ''
+  return KINDS.get(ext) ?? 'plain'
 }
+
+/** A note: .md, or .markdown (the other extension the installer associates). */
+export const isMarkdown = (name: string): boolean => fileKind(name) === 'markdown'
+
+const NOTE_EXTENSION = /\.(md|markdown)$/i
+
+/** The extension a note renamed to another title keeps: ".markdown" stays, anything else is ".md". */
+export const noteExtension = (name: string): string => (/\.markdown$/i.test(name) ? '.markdown' : '.md')
 
 /** Notes and tables are listed whenever they're in the folder; other files only once opened from outside. */
 export const isListed = (name: string): boolean => fileKind(name) !== 'plain'
 
-/** Notes show without ".md"; other files keep their full name so the extension stays visible. */
-export const displayName = (name: string): string => (isMarkdown(name) ? name.replace(/\.md$/i, '') : name)
+/** Notes show without ".md" / ".markdown"; other files keep their full name so the extension stays visible. */
+export const displayName = (name: string): string => name.replace(NOTE_EXTENSION, '')
 
 /** By the name as shown ("note 2" before "note 10", case ignored). */
 const byName = (a: Named, b: Named): number =>

@@ -7,6 +7,7 @@ import {
   isSortOrder,
   nameTaken,
   newFileName,
+  noteExtension,
   safeTitle,
   sortFiles
 } from './names'
@@ -17,20 +18,25 @@ describe('displayName', () => {
   it('drops .md (any case) but keeps other extensions', () => {
     expect(displayName('メモ.md')).toBe('メモ')
     expect(displayName('README.MD')).toBe('README')
+    expect(displayName('長い拡張子.markdown')).toBe('長い拡張子')
     expect(displayName('log.txt')).toBe('log.txt')
+  })
+
+  it('a renamed note keeps .markdown; anything else becomes .md', () => {
+    expect(['a.md', 'a.MD', 'a.markdown', 'a.Markdown'].map(noteExtension)).toEqual([
+      '.md',
+      '.md',
+      '.markdown',
+      '.markdown'
+    ])
   })
 })
 
 describe('fileKind', () => {
   it('notes, tables (CSV / TSV, any case) and the rest; notes and tables are listed', () => {
-    expect(['a.md', 'b.CSV', 'c.tsv', 'd.txt', 'csv', 'e.csv.bak'].map(fileKind)).toEqual([
-      'markdown',
-      'csv',
-      'tsv',
-      'plain',
-      'plain',
-      'plain'
-    ])
+    expect(
+      ['a.md', 'f.Markdown', 'b.CSV', 'c.tsv', 'd.txt', 'csv', 'e.csv.bak', 'g.constructor'].map(fileKind)
+    ).toEqual(['markdown', 'markdown', 'csv', 'tsv', 'plain', 'plain', 'plain', 'plain'])
     expect(['a.md', 'b.csv', 'c.TSV', 'd.txt'].map(isListed)).toEqual([true, true, true, false])
   })
 })

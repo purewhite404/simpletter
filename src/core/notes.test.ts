@@ -457,6 +457,30 @@ describe('editor', () => {
     expect(content()).toBe('- [x] milk\n- [x] eggs')
     await vi.waitFor(() => expect(dir['todo.md'].content).toBe('- [x] milk\n- [x] eggs'), { timeout: 2000 })
   })
+
+  it('.markdown files are notes: listed, live preview, renamed with their own extension', async () => {
+    const dir: Folder = { 'old.markdown': { content: '# H', modifiedAt: 1 }, 'x.txt': { content: '', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    expect(rows()).toEqual(['old'])
+    row('old').click()
+    await vi.waitFor(() => expect(content()).toBe('# H'))
+    expect($('#content .cm-editor').classList.contains('cm-markdown')).toBe(true)
+    const title = $<HTMLInputElement>('#title')
+    expect(title.value).toBe('old')
+
+    title.value = 'by title'
+    title.dispatchEvent(new Event('change'))
+    await vi.waitFor(() => expect(names(dir)).toEqual(['by title.markdown', 'x.txt']))
+
+    await menuItem('by title', '名前の変更')
+    const box = $<HTMLInputElement>('.file-rename')
+    box.value = 'by menu'
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    await vi.waitFor(() => expect(names(dir)).toEqual(['by menu.markdown', 'x.txt']))
+    expect(dir['by menu.markdown'].content).toBe('# H')
+    expect(title.value).toBe('by menu')
+  })
 })
 
 describe('dialogs', () => {

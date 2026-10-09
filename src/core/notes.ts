@@ -19,6 +19,7 @@ import {
   isSortOrder,
   nameTaken,
   newFileName,
+  noteExtension,
   safeTitle,
   sortFiles,
   type SortOrder
@@ -335,7 +336,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     if (input === null) return
     const title = safeTitle(input)
     if (!title) return
-    const newName = isMarkdown(file.name) ? `${title}.md` : title
+    const newName = isMarkdown(file.name) ? title + noteExtension(file.name) : title
     if (newName === file.name) return
     if (nameTaken(files, newName, file.name)) throw new Error(`同じ名前のファイルがあります: ${newName}`)
     await flushSave()
@@ -442,7 +443,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
       return
     }
     const title = safeTitle(titleInput.value)
-    const newName = isMarkdown(currentFile) ? `${title || 'Untitled'}.md` : title || currentFile
+    const newName = isMarkdown(currentFile) ? (title || 'Untitled') + noteExtension(currentFile) : title || currentFile
     if (newName === currentFile) return
     const oldName = currentFile
     if (nameTaken(files, newName, oldName)) {
