@@ -22,6 +22,25 @@ Talk to the user in Japanese.
 What to run: logic → typecheck + unit (+ rust if `src-tauri` changed); UI → also e2e;
 before a commit → all of them.
 
+### Versions (user's request, 2026-10-09: decide and bump them myself)
+
+The version is in 5 files (package.json, package-lock.json, tauri.conf.json, Cargo.toml, Cargo.lock):
+`npm run bump` prints it (fails if they disagree), `npm run bump -- patch|minor|major|x.y.z` sets all of
+them (only the version lines). Brighterm's `src/brighterm/static/manifest.json` (0.3.0) counts on its own —
+not bumped with the app.
+
+**When:** not per commit — only when a build is handed out: the user asks for an installer
+(`npm run tauri build`) or says リリース. Then look at `git log <last tag>..HEAD` and pick, without asking:
+- something the user can now do that they couldn't (a feature, a new file type, a setting) → **minor**
+  (patch back to 0). Also minor, while 0.x: a change in behaviour or in what's stored that the user
+  would notice (settings lost / moved, a default changed).
+- only fixes to things that should already have worked (display glitches, wrong saves, IME…) → **patch**.
+- nothing a user would see (docs, tests, refactors) → no bump, no new installer needed.
+- 1.0.0 only when the user says so.
+Then: all checks → `npm run bump -- …` → commit `simpletter: x.y.z` (body: what's in it since the last
+tag, in Japanese) → `git tag -a vx.y.z` → build. Tell the user which bump and why (they can overrule).
+No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0.
+
 ### From WSL
 
 Same rules as Brighterm: `node_modules` and `target/` are **Windows** builds. Run everything

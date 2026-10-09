@@ -99,6 +99,9 @@ npm run tauri dev    # 開発モードで起動（画面のコードは保存す
 npm run tauri build  # インストーラーを作る → src-tauri\target\release\bundle\nsis\
 ```
 
+バージョンは 5 つのファイルに書かれているので、`npm run bump -- patch`（不具合の修正）/ `minor`（機能の追加）で
+まとめて上げます（`npm run bump` だけなら今のバージョンを表示）。上げるのはインストーラーを配るときだけです。
+
 必要なもの: Node.js、Rust（`rustup`、stable-msvc）、Visual Studio Build Tools（C++）、WebView2（Windows 11 は標準）。
 
 ## テスト

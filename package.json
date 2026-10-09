@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:brighterm": "tsc && vite build --config vite.brighterm.config.ts",
+    "bump": "node scripts/version.mjs",
     "typecheck": "tsc && tsc -p tsconfig.node.json",
     "test": "vitest run",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --lib",
