@@ -255,7 +255,9 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - **The NSIS installer is our own template** (`src-tauri/nsis/installer.nsi`, `bundle.windows.nsis.template`; user's
   request 2026-10-09: simpletter starts by opening a file, so no shortcuts / "run"): Tauri has no setting for
   that. = Tauri's template from tauri-bundler 2.10.1 (CLI 2.12.1) minus the finish page (run / desktop check
-  boxes), the start menu page and all shortcut creation (also /P, /S), /NS, /R. Install deletes `simpletter.lnk`
+  boxes), the start menu page and all shortcut creation (also /P, /S), /NS, /R; the install / uninstall progress
+  pages close themselves when done (`SetAutoClose true` always, user's choice; welcome / folder / uninstall confirm
+  pages kept). Install deletes `simpletter.lnk`
   in Start menu / desktop if it points to our exe (an older version's uninstaller keeps them on update).
   The commit "Add Tauri's NSIS template as is" is upstream unchanged — **after a Tauri CLI update**, diff the new
   upstream template against that and carry the changes over. `startMenuFolder` does nothing.
@@ -332,8 +334,8 @@ e2e 14; the generated `installer.nsi` has the 13 `APP_ASSOCIATE` lines. Next rel
 Not yet checked by hand: the installed build's double-click for the new types.
 
 Done (2026-10-09): installer without the finish page (no "run simpletter" / desktop shortcut check boxes) and without
-any shortcut (see Gotchas: NSIS template). Pages: welcome → folder → progress (Close). makensis: 0 warnings;
-13 `APP_ASSOCIATE` kept. Not yet checked by hand: the pages, no shortcuts, 0.3.0's shortcuts removed on install
+any shortcut (see Gotchas: NSIS template). Pages: welcome → folder → progress (closes itself; uninstall too). makensis: 0 warnings;
+13 `APP_ASSOCIATE` kept. Not yet checked by hand: the pages, auto-close (and a failure staying open), no shortcuts, 0.3.0's shortcuts removed on install
 over it, `.md` double-click, uninstall. User-visible → part of the next (minor) release.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,

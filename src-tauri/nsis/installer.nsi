@@ -3,6 +3,7 @@
 ;   crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi
 ; Removed: the finish page (its "run simpletter" and "create desktop shortcut" check boxes), the start
 ; menu page and every shortcut it made (start menu, desktop; also for /P and /S), /NS, /R and /ARGS.
+; Changed: the install and uninstall progress pages close themselves when done (upstream: only /P, /UPDATE).
 ; simpletter is started by opening a file. Shortcuts an older version made are deleted on install.
 ; bundle.windows.nsis.startMenuFolder has no effect.
 ; After a Tauri CLI update: diff the new upstream template against the one above and carry the changes over.
@@ -406,8 +407,7 @@ FunctionEnd
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_DIRECTORY
 
-; 6. Installation page, the last one: when it's done its button says Close
-; (no start menu page, no finish page)
+; 6. Installation page, the last one (no start menu page, no finish page); closes itself when done
 !insertmacro MUI_PAGE_INSTFILES
 
 ; Uninstaller Pages
@@ -712,10 +712,8 @@ Section Install
     !insertmacro NSIS_HOOK_POSTINSTALL
   !endif
 
-  ; Auto close this page for passive mode
-  ${If} $PassiveMode = 1
-    SetAutoClose true
-  ${EndIf}
+  ; Close when done, no Close button to press (a failure keeps the page open)
+  SetAutoClose true
 SectionEnd
 
 Function un.onInit
@@ -832,11 +830,8 @@ Section Uninstall
     !insertmacro NSIS_HOOK_POSTUNINSTALL
   !endif
 
-  ; Auto close if passive mode or updating
-  ${If} $PassiveMode = 1
-  ${OrIf} $UpdateMode = 1
-    SetAutoClose true
-  ${EndIf}
+  ; Close when done, no Close button to press
+  SetAutoClose true
 SectionEnd
 
 Function RestorePreviousInstallLocation
