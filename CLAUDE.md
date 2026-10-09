@@ -7,6 +7,14 @@ developed here from now on**; Brighterm's copy stays as it was until the user de
 bring it back (`npm run build:brighterm`). User-facing docs: `README.md` (Japanese).
 Talk to the user in Japanese. Commit messages in English (user's request, 2026-10-09).
 
+**Identity (user's request, 2026-10-09):** published as **purewhite404** — no real name anywhere (LICENSE,
+`Cargo.toml` authors, `tauri.conf.json` `bundle.publisher` / `copyright`, test paths use `me`). Identifier
+`com.purewhite404.simpletter` since 0.3.0 (was `com.satoshi.simpletter`: the WebView2 profile = localStorage moved
+with it; the user chose not to migrate — last folder / sort order reset once, README says so). Commits: repo-local
+`git config` user.name `purewhite404`, email `61584839+purewhite404@users.noreply.github.com` — keep it. The whole
+history was rewritten to that on 2026-10-09 (`git filter-repo` mailmap + replace-text; backup bundle in
+`..\simpletter-backup-2026-10-09.bundle`); old versions keep `com.satoshi.simpletter` as the identifier they had.
+
 ## Commands
 
 | | |
@@ -128,7 +136,7 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - **`src/standalone/`** — the app: `tauriHost.ts` (Rust commands, localStorage for `storage`, a
   folder handle's `id` = the folder's absolute path), `folderBar.ts` (vanilla port of Brighterm's
   `FolderBar.tsx` — Brighterm draws that bar in its shell, here the window does), `folderBarText.ts`
-  (copied from Brighterm with its test), `tokens.css` (copy of Brighterm's `packages/sdk/ui/tokens.css`),
+  (copied from Brighterm with its test — its paths now say `me`, Brighterm's copy still has the user's name), `tokens.css` (copy of Brighterm's `packages/sdk/ui/tokens.css`),
   `errorBar.ts` (uncaught errors, like Brighterm's plugin error bar).
 - **`src/brighterm/`** — plugin entry (`window.brighterm` as host) + static `index.html`/`manifest.json`;
   `vite.brighterm.config.ts` emits one non-minified IIFE `main.js` (Brighterm statically scans
