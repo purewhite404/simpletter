@@ -19,6 +19,12 @@ struct FolderHandle {
     label: String,
 }
 
+impl FolderHandle {
+    fn of(path: &Path) -> Self {
+        FolderHandle { label: folder_input::label(path), id: path.to_string_lossy().into_owned() }
+    }
+}
+
 fn home(app: &AppHandle) -> PathBuf {
     app.path().home_dir().unwrap_or_default()
 }
@@ -26,8 +32,7 @@ fn home(app: &AppHandle) -> PathBuf {
 /// A typed / pasted / picked folder path → the folder, if it's one we can read.
 #[tauri::command]
 async fn open_folder(app: AppHandle, input: String) -> Result<FolderHandle, String> {
-    let path = folder_input::open_folder(&input, &home(&app))?;
-    Ok(FolderHandle { label: folder_input::label(&path), id: path.to_string_lossy().into_owned() })
+    Ok(FolderHandle::of(&folder_input::open_folder(&input, &home(&app))?))
 }
 
 /// A file to open from outside: its folder (as the folder bar would give it) and its name there.
@@ -52,10 +57,7 @@ fn initial_file(state: State<'_, InitialFile>) -> Option<String> {
 async fn open_path(app: AppHandle, path: String) -> Result<OpenedFile, String> {
     let (dir, name) = open_file::split(Path::new(&path))?;
     let dir = folder_input::open_folder(&dir.to_string_lossy(), &home(&app))?;
-    Ok(OpenedFile {
-        folder: FolderHandle { label: folder_input::label(&dir), id: dir.to_string_lossy().into_owned() },
-        name,
-    })
+    Ok(OpenedFile { folder: FolderHandle::of(&dir), name })
 }
 
 /// Subfolders completing what's typed in the folder bar.
@@ -113,12 +115,13 @@ fn test_mode() -> Option<TestMode> {
     })
 }
 
-fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
+fn create_main_window(app: &tauri::App, test: Option<TestMode>) -> tauri::Result<()> {
+    let is_test = test.is_some();
     let mut window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
         .title("simpletter")
         .inner_size(960.0, 680.0)
         .min_inner_size(320.0, 240.0);
-    if let Some(test) = test_mode() {
+    if let Some(test) = test {
         window = window
             .data_directory(test.data_dir)
             // wry's defaults (replaced by any args given) + CDP + no "hidden" while off screen.
@@ -132,7 +135,7 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
             .skip_taskbar(true);
     }
     let window = window.build()?;
-    if test_mode().is_some() {
+    if is_test {
         show_off_screen(&window)?;
     }
     Ok(())
@@ -184,16 +187,17 @@ fn on_second_launch(app: &AppHandle, args: Vec<String>, cwd: String) {
 pub fn run() {
     let cwd = std::env::current_dir().unwrap_or_default();
     let initial = open_file::from_args(std::env::args_os(), &cwd);
+    let test = test_mode();
 
     let mut builder = tauri::Builder::default();
     // One window for every double-clicked file. Not in e2e tests: their exe would hand its
     // arguments to the user's running simpletter and quit (the plugin goes by the app's identifier).
-    if test_mode().is_none() {
+    if test.is_none() {
         builder = builder.plugin(tauri_plugin_single_instance::init(on_second_launch));
     }
     builder
         .manage(InitialFile(Mutex::new(initial)))
-        .setup(|app| Ok(create_main_window(app)?))
+        .setup(move |app| Ok(create_main_window(app, test)?))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .invoke_handler(tauri::generate_handler![

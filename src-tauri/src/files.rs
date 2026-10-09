@@ -129,7 +129,14 @@ fn replace(path: &Path, temp: &Path) -> std::io::Result<()> {
     let flags = REPLACEFILE_IGNORE_MERGE_ERRORS | REPLACEFILE_IGNORE_ACL_ERRORS;
     // SAFETY: both paths are NUL-terminated UTF-16 that live past the call; the other pointers may be null.
     let ok = unsafe {
-        ReplaceFileW(replaced.as_ptr(), replacement.as_ptr(), std::ptr::null(), flags, std::ptr::null_mut(), std::ptr::null_mut())
+        ReplaceFileW(
+            replaced.as_ptr(),
+            replacement.as_ptr(),
+            std::ptr::null(),
+            flags,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+        )
     };
     if ok != 0 {
         return Ok(());
@@ -198,7 +205,8 @@ mod tests {
 
     /// The folder's file names, sorted.
     fn names(dir: &Path) -> Vec<String> {
-        let mut names: Vec<String> = fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        let mut names: Vec<String> =
+            fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
         names.sort();
         names
     }
@@ -210,7 +218,8 @@ mod tests {
         write(d, "Note.md", "first, and longer").unwrap();
         write(d, "Note.md", "second").unwrap();
         assert_eq!(read(d, "Note.md").unwrap(), "second");
-        assert_eq!(names(&dir), ["Note.md"]); // no temporary file left
+        // No temporary file left.
+        assert_eq!(names(&dir), ["Note.md"]);
         // Windows: the note keeps its own name when written under another case (as fs::write did).
         #[cfg(windows)]
         {

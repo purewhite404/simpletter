@@ -94,9 +94,7 @@ pub fn open_folder(input: &str, home: &Path) -> Result<PathBuf, String> {
 
 /// The folder's own name, as the handle's label ("C:\" for a drive).
 pub fn label(path: &Path) -> String {
-    path.file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path.to_string_lossy().into_owned())
+    path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_string_lossy().into_owned())
 }
 
 /// Where to look for completions: the folder typed so far and the start of the next name.
@@ -105,14 +103,12 @@ fn suggestion_query(input: &str, home: &Path) -> Option<(PathBuf, String)> {
     if text.is_empty() || !is_full_path(&text) {
         return None;
     }
-    let ends_with_sep = text.ends_with('\\') || text.ends_with('/');
-    if ends_with_sep || Path::new(&text) == home {
-        return Some((clean(Path::new(&text)), String::new()));
-    }
     let cleaned = clean(Path::new(&text));
+    if text.ends_with(['\\', '/']) || Path::new(&text) == home {
+        return Some((cleaned, String::new()));
+    }
     let prefix = cleaned.file_name()?.to_string_lossy().into_owned();
-    let dir = cleaned.parent()?.to_path_buf();
-    Some((dir, prefix))
+    Some((cleaned.parent()?.to_path_buf(), prefix))
 }
 
 /// Whether a folder name should be offered for the typed prefix (dot folders only when asked for).
@@ -136,37 +132,23 @@ fn with_trailing_separator(path: &Path) -> String {
     text
 }
 
-/// Natural-ish, case-insensitive order ("2" before "10").
-fn compare_names(a: &str, b: &str) -> std::cmp::Ordering {
-    fn key(s: &str) -> Vec<(u8, String, u64)> {
-        let mut parts = Vec::new();
-        let mut chars = s.chars().peekable();
-        while let Some(&c) = chars.peek() {
-            if c.is_ascii_digit() {
-                let mut digits = String::new();
-                while let Some(&d) = chars.peek() {
-                    if !d.is_ascii_digit() {
-                        break;
-                    }
-                    digits.push(d);
-                    chars.next();
-                }
-                parts.push((0, String::new(), digits.parse().unwrap_or(u64::MAX)));
-            } else {
-                let mut text = String::new();
-                while let Some(&d) = chars.peek() {
-                    if d.is_ascii_digit() {
-                        break;
-                    }
-                    text.extend(d.to_lowercase());
-                    chars.next();
-                }
-                parts.push((1, text, 0));
+/// What folder names sort by: natural-ish, case-insensitive ("2" before "10"), ties by the name itself.
+fn sort_key(name: &str) -> (Vec<(u8, String, u64)>, String) {
+    let mut parts = Vec::new();
+    let mut chars = name.chars().peekable();
+    while let Some(&c) = chars.peek() {
+        let digits = c.is_ascii_digit();
+        let mut run = String::new();
+        while let Some(&d) = chars.peek() {
+            if d.is_ascii_digit() != digits {
+                break;
             }
+            run.extend(d.to_lowercase());
+            chars.next();
         }
-        parts
+        parts.push(if digits { (0, String::new(), run.parse().unwrap_or(u64::MAX)) } else { (1, run, 0) });
     }
-    key(a).cmp(&key(b)).then_with(|| a.cmp(b))
+    (parts, name.to_string())
 }
 
 /// Subfolders completing what's typed, as full paths ending in a separator. Called on
@@ -193,7 +175,7 @@ pub fn suggest(input: &str, home: &Path) -> Vec<String> {
             is_dir.then_some(name)
         })
         .collect();
-    names.sort_by(|a, b| compare_names(a, b));
+    names.sort_by_cached_key(|name| sort_key(name)); // each key built once, not per comparison
     names.truncate(MAX_SUGGESTIONS);
     names.into_iter().map(|name| with_trailing_separator(&dir.join(name))).collect()
 }
@@ -222,7 +204,7 @@ mod tests {
     #[test]
     fn natural_order() {
         let mut names = vec!["note10", "Note2", "note1", "b"];
-        names.sort_by(|a, b| compare_names(a, b));
+        names.sort_by_cached_key(|name| sort_key(name));
         assert_eq!(names, vec!["b", "note1", "Note2", "note10"]);
     }
 
