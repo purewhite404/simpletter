@@ -5,7 +5,7 @@ renamed. Split out of Brighterm (`../brighterm`, its `plugins-builtin/notes/`) o
 because the user edits lots of one-off `.md` files and wanted something light. **Notes is
 developed here from now on**; Brighterm's copy stays as it was until the user decides how to
 bring it back (`npm run build:brighterm`). User-facing docs: `README.md` (Japanese).
-Talk to the user in Japanese.
+Talk to the user in Japanese. Commit messages in English (user's request, 2026-10-09).
 
 ## Commands
 
@@ -38,7 +38,7 @@ not bumped with the app.
 - nothing a user would see (docs, tests, refactors) → no bump, no new installer needed.
 - 1.0.0 only when the user says so.
 Then: all checks → `npm run bump -- …` → commit `simpletter: x.y.z` (body: what's in it since the last
-tag, in Japanese) → `git tag -a vx.y.z` → build. Tell the user which bump and why (they can overrule).
+tag, in English) → `git tag -a vx.y.z` → build. Tell the user which bump and why (they can overrule).
 No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0.
 
 ### From WSL
