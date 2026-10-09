@@ -60,8 +60,11 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - **`src/core/`** — the notes UI, ported from Brighterm's `main.js`, behaviour unchanged. It talks
   only to a `NotesHost` (`host.ts`) = the subset of Brighterm's `window.brighterm` Host API that
   Notes uses, **same shape**. Keep it that way: it's what lets the same code be Brighterm's plugin.
-  `names.ts` = pure naming/sorting helpers, `fileKind` (md / csv / tsv / plain; `isListed` = all but plain);
-  `markup.ts` = the HTML (was `index.html`).
+  `names.ts` = pure naming/sorting helpers, `fileKind` (md + markdown / csv / tsv / plain, a `Map` lookup;
+  `isListed` = all but plain); a renamed note keeps `.markdown` (`noteExtension`), anything else becomes `.md`.
+  `markup.ts` = the HTML (was `index.html`). `errorText.ts` = the one `err → message` (also used by standalone).
+  `notes.ts`: `closeNote()` (no note open, a pending read dropped) and `cancelSave()` are the only places that
+  do that — use them rather than resetting `currentFile` / the timer by hand.
   `editor.ts` = the text editor (CodeMirror 6) in `#content`: `.md` → `markdownLanguage` (GFM) + live
   preview + list continuation (`insertNewlineContinueMarkup`), `.csv`/`.tsv` → the table view (no line
   wrapping: scrolls sideways; Tab = the delimiter, `insertDelimiter`), anything else → plain mono text. Opening a
@@ -78,6 +81,8 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   pure function `previewDecorations(state)` of tree + selection + focus — unit-tested with an EditorState
   alone. Block marks (`#`, `>`, bullets, fences, `---`) show on the cursor's lines, inline marks (`**`,
   `` ` ``, `[](url)`, `\`) while the selection touches the element (ends inclusive); unfocused = all hidden.
+  Mark / line decorations come from `markClass` / `lineClass`, made once per class (the field rebuilds on every
+  cursor move — don't build `Decoration.mark` inline there).
   Hidden fences get `cm-lp-fence` (low line). Checkbox = widget with `ignoreEvent() false` + a `mousedown`
   handler that flips `[ ]`/`[x]`.
   **Tables** (top level only): off the cursor's lines the whole table (full lines) is one `block: true`
@@ -236,5 +241,13 @@ installer built). Checked by hand by the user with the installed 0.2.1: typing t
 text; opening CRLF .md / .csv, moving the cursor and clicking a table leaves them untouched (mtime, CRLF).
 Tests: Vitest 92, Rust 16, e2e 12. Not pushed.
 
+Done (2026-10-09): refactoring (user's request: drop what's unused, simplify, one style). No change a user sees
+except one fix: unused icons (Store / macOS) and `serde_json` removed; Rust: `FolderHandle::of`, test mode read
+once, folder completions sorted with `sort_by_cached_key`; Prettier + rustfmt (see Commands); TS: shared
+`errorText`, `closeNote` / `cancelSave`, decorations made once per class, unused exports / params / CSS gone,
+`vite.config.ts` without the mobile `TAURI_DEV_HOST` part. Fix: **`.markdown` files are notes** (associated by
+the installer, but opened as plain text and not listed before) → the next release is at least a **patch**.
+Tests: Vitest 94, Rust 16, e2e 12. Not pushed, no version bump yet.
+
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
-app icon (still Tauri's default icons).
+app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).
