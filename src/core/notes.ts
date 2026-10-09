@@ -6,6 +6,7 @@
 // The notes folder is chosen in the folder bar the host draws above this UI
 // (fs.showFolderBar / fs.onFolderBarChange) — no picker window needed.
 
+import { createEditor } from './editor'
 import type { FileEntry, FolderHandle, NotesHost } from './host'
 import { NOTES_MARKUP } from './markup'
 import {
@@ -32,7 +33,8 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
   const searchInput = $<HTMLInputElement>('search')
   const fileListEl = $('file-list')
   const titleInput = $<HTMLInputElement>('title')
-  const contentArea = $<HTMLTextAreaElement>('content')
+  // Markdown notes: live preview (markup shows only where the cursor is); other files: plain text.
+  const editor = createEditor($('content'), () => scheduleSave())
   const sortSelect = $<HTMLSelectElement>('sort')
   const toggleSidebarBtn = $<HTMLButtonElement>('toggle-sidebar')
   const sidebarBackdrop = $('sidebar-backdrop')
@@ -126,7 +128,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     folderHandle = handle
     currentFile = null
     titleInput.value = ''
-    contentArea.value = ''
+    editor.setValue('', 'markdown')
     await host.storage.set('folderHandle', handle)
     await refreshFileList()
     await host.fs.showFolderBar(handle)
@@ -327,7 +329,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
       }
       currentFile = null
       titleInput.value = ''
-      contentArea.value = ''
+      editor.setValue('', 'markdown')
     }
     await host.fs.deleteFile(folder(), file.name)
     if (extraFile === file.name) extraFile = null
@@ -339,7 +341,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     currentFile = name
     const content = await host.fs.readFile(folder(), name)
     titleInput.value = displayName(name)
-    contentArea.value = content
+    editor.setValue(content, isMarkdown(name) ? 'markdown' : 'plain')
     renderFileList()
   }
 
@@ -364,14 +366,14 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     if (!folderHandle) return
     if (!currentFile) {
       // Typing with no note open (e.g. a brand-new, empty folder) starts a new note.
-      if (!contentArea.value && !titleInput.value.trim()) return
+      if (!editor.getValue() && !titleInput.value.trim()) return
       currentFile = newFileName(files, titleInput.value)
       titleInput.value = currentFile.replace(/\.md$/i, '')
-      await host.fs.writeFile(folderHandle, currentFile, contentArea.value)
+      await host.fs.writeFile(folderHandle, currentFile, editor.getValue())
       await refreshFileList()
       return
     }
-    await host.fs.writeFile(folderHandle, currentFile, contentArea.value)
+    await host.fs.writeFile(folderHandle, currentFile, editor.getValue())
     touched(currentFile)
   }
 
@@ -389,14 +391,13 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
       alert(`同じ名前のファイルがあります: ${newName}`)
       return
     }
-    const content = contentArea.value
+    const content = editor.getValue()
     await moveFile(oldName, newName, content)
     currentFile = newName
     if (extraFile === oldName) extraFile = newName
     await refreshFileList()
   }
 
-  contentArea.addEventListener('input', scheduleSave)
   titleInput.addEventListener('change', () => void renameCurrent())
 
   const ready = init()
@@ -407,7 +408,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     extraFile = null
     await useFolder(handle)
     if (files.length > 0) await openFile(files[0].name)
-    contentArea.focus()
+    editor.focus()
   })
 
   // "Open in Notes" from outside (Brighterm's Files tile): switch to that file's folder and open it.
@@ -416,7 +417,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     extraFile = isMarkdown(name) ? null : name
     await useFolder(folder)
     await openFile(name)
-    contentArea.focus()
+    editor.focus()
   })
 
   return ready

@@ -35,6 +35,17 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   only to a `NotesHost` (`host.ts`) = the subset of Brighterm's `window.brighterm` Host API that
   Notes uses, **same shape**. Keep it that way: it's what lets the same code be Brighterm's plugin.
   `names.ts` = pure naming/sorting helpers; `markup.ts` = the HTML (was `index.html`).
+  `editor.ts` = the text editor (CodeMirror 6) in `#content`: `.md` → `markdownLanguage` (GFM) + live
+  preview + list continuation (`insertNewlineContinueMarkup`), anything else → plain mono text. Opening a
+  file = `view.setState` (fresh undo history, no change event → no save). Import `markdownLanguage`, never
+  `markdown()`: that one drags lang-html/js/css into the bundle.
+  `livePreview.ts` = Obsidian-style live preview: a **StateField** (not a ViewPlugin) whose decorations are a
+  pure function `previewDecorations(state)` of tree + selection + focus — unit-tested with an EditorState
+  alone. Block marks (`#`, `>`, bullets, fences, `---`) show on the cursor's lines, inline marks (`**`,
+  `` ` ``, `[](url)`, `\`) while the selection touches the element (ends inclusive); unfocused = all hidden.
+  Only non-block decorations (a plugin/field may not replace line breaks); hidden fences get `cm-lp-fence`
+  (low line). Checkbox = widget with `ignoreEvent() false` + a `mousedown` handler that flips `[ ]`/`[x]`.
+  Styles: `.cm-lp-*` in `notes.css` (`--bt-*` tokens).
 - **`src/standalone/`** — the app: `tauriHost.ts` (Rust commands, localStorage for `storage`, a
   folder handle's `id` = the folder's absolute path), `folderBar.ts` (vanilla port of Brighterm's
   `FolderBar.tsx` — Brighterm draws that bar in its shell, here the window does), `folderBarText.ts`
@@ -74,6 +85,12 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   its args to the user's running simpletter and quit. Not off in plain debug builds: `npm run tauri dev`
   while an installed simpletter runs just focuses the installed one and exits — close it first.
   The second-launch path (event + focus) has no e2e for that reason; the e2e covers argv at startup.
+- **The editor is CodeMirror, not a textarea.** Vitest: `EditorView.findFromDOM($('#content'))` (happy-dom
+  runs CM fine). e2e: `editor(page)` = `#content .cm-content` — `fill`/`toHaveText`; the source text with
+  markup is checked on disk (the screen hides marks off the cursor line). Don't reach for CM internals
+  (`cmView` became `Tile` in 6.4x).
+- `view.setState` resets the focus flag of the live preview: `editor.setValue` re-sends `focusEffect(true)`
+  when the view still has focus.
 - File associations only exist in the installed (NSIS) build, and Windows 10/11 won't let an installer
   become the default app if the user already chose one for `.md` (README explains「プログラムから開く」).
 - The window is created in `lib.rs` (`app.windows` is empty in `tauri.conf.json`) so tests can set
@@ -88,4 +105,14 @@ Tests: Rust 14, Vitest 32, e2e 5; Brighterm's own `notes.spec.ts` (10) passes wi
 Done (2026-10-08): `.md` file association + single instance (core untouched — it already had `onOpenFile`).
 Not yet checked by hand: the installed build's double-click, second launch → same window.
 
-Next candidates (not started): markdown preview, app icon (still Tauri's default icons).
+Done (2026-10-09): live preview for `.md` (CodeMirror 6; user's choices: Live Preview only, no source
+toggle; basic elements; non-.md stays plain; Brighterm build must keep working). Tests: Vitest 47
+(`livePreview.test.ts` 13 + editor 2), e2e 6. `dist-brighterm/main.js` passes the static-scan patterns
+(~700 KB unminified); Brighterm's CSP allows CM's inline styles. **Brighterm's `notes.spec.ts` still
+assumes a textarea** (`#content` + `toHaveValue`/`fill`) — needs `#content .cm-content` + `toHaveText`
+before this build goes into Brighterm (not done: other repo, ask first).
+Not yet checked by hand: Japanese IME in the live preview (no composing guard: marks around the cursor
+are already shown while composing), long files.
+
+Next candidates (not started): tables / images / opening links in the preview, a source-mode toggle,
+app icon (still Tauri's default icons).

@@ -4,6 +4,7 @@
 // case-insensitive names (writing "Note.md" over "note.md" keeps "note.md").
 // Scenarios follow Brighterm's tests/e2e/notes.spec.ts.
 
+import { EditorView } from '@codemirror/view'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FileEntry, FolderHandle, NotesHost } from './host'
 import { startNotes } from './notes'
@@ -70,9 +71,18 @@ const rows = () => [...document.querySelectorAll('.file-row')].map((r) => r.text
 const row = (text: string) => [...document.querySelectorAll<HTMLElement>('.file-row')].find((r) => r.textContent === text)!
 const names = (f: Folder) => Object.keys(f).sort()
 
-function type(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+function type(el: HTMLInputElement, value: string): void {
   el.value = value
   el.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+/** The note editor (CodeMirror). */
+const editorView = () => EditorView.findFromDOM($('#content'))!
+const content = () => editorView().state.doc.toString()
+/** Replaces the note's text, as typing would. */
+function typeContent(value: string): void {
+  const view = editorView()
+  view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value }, userEvent: 'input.type' })
 }
 
 /** Right-click `rowText`, then click `item` in the menu. */
@@ -131,7 +141,7 @@ describe('folder', () => {
     const { host, state, storage } = fakeHost({ A: { 'z.md': { content: 'Z', modifiedAt: 1 }, 'm.md': { content: 'M', modifiedAt: 1 } } })
     await startNotes(root(), host)
     state.changeFolder(handle('A'))
-    await vi.waitFor(() => expect($<HTMLTextAreaElement>('#content').value).toBe('M'))
+    await vi.waitFor(() => expect(content()).toBe('M'))
     expect($<HTMLInputElement>('#title').value).toBe('m')
     expect(storage.get('folderHandle')).toEqual(handle('A'))
   })
@@ -143,7 +153,7 @@ describe('folder', () => {
     state.changeFolder(handle('E'))
     await vi.waitFor(() => expect($('#notes-screen').hidden).toBe(false))
     type($('#title'), '買い物')
-    type($('#content'), '牛乳')
+    typeContent('牛乳')
     await vi.waitFor(() => expect(names(empty)).toEqual(['買い物.md']), { timeout: 2000 })
     expect(empty['買い物.md'].content).toBe('牛乳')
     expect(rows()).toEqual(['買い物'])
@@ -158,13 +168,13 @@ describe('editing', () => {
     await startNotes(root(), host)
     row('a').click()
     await settle()
-    type($('#content'), 'new')
+    typeContent('new')
     expect(a['a.md'].content).toBe('old')
     await vi.waitFor(() => expect(a['a.md'].content).toBe('new'), { timeout: 2000 })
 
-    type($('#content'), 'newer')
+    typeContent('newer')
     state.changeFolder(handle('B')) // before the timer fires
-    await vi.waitFor(() => expect($<HTMLTextAreaElement>('#content').value).toBe('B'))
+    await vi.waitFor(() => expect(content()).toBe('B'))
     expect(a['a.md'].content).toBe('newer')
   })
 
@@ -185,7 +195,7 @@ describe('editing', () => {
 
     row('old note').click()
     await settle()
-    type($('#content'), 'edited')
+    typeContent('edited')
     await vi.waitFor(() => expect(rows()).toEqual(['old note', 'new note', 'mid']), { timeout: 2000 })
 
     // Search keeps the order.
@@ -216,6 +226,42 @@ describe('editing', () => {
     title.dispatchEvent(new Event('change'))
     await vi.waitFor(() => expect(names(a)).toEqual(['a_b.md', 'other.md']))
     expect(a['a_b.md'].content).toBe('my note')
+  })
+})
+
+describe('editor', () => {
+  it('notes get the live preview, other files plain text; opening a file is not an edit', async () => {
+    const dir: Folder = { 'a.md': { content: '# A\n**b**', modifiedAt: 1 } }
+    const { host, state } = fakeHost({ D: dir })
+    await startNotes(root(), host)
+    state.changeFolder(handle('D'))
+    await vi.waitFor(() => expect(content()).toBe('# A\n**b**'))
+    expect($('#content .cm-editor').classList.contains('cm-markdown')).toBe(true)
+    expect($('#content .cm-lp-h1')).not.toBeNull()
+    expect($('#content .cm-lp-strong')?.textContent).toContain('b')
+
+    dir['log.txt'] = { content: '# not a heading', modifiedAt: 1 }
+    state.openFile({ folder: handle('D'), name: 'log.txt' })
+    await vi.waitFor(() => expect(content()).toBe('# not a heading'))
+    expect($('#content .cm-editor').classList.contains('cm-plain')).toBe(true)
+    expect($('#content .cm-lp-h1')).toBeNull()
+
+    await new Promise((r) => setTimeout(r, 600)) // longer than the save delay
+    expect(dir['a.md'].modifiedAt).toBe(1)
+    expect(dir['log.txt'].modifiedAt).toBe(1)
+  })
+
+  it('clicking a checkbox ticks the task in the file', async () => {
+    const dir: Folder = { 'todo.md': { content: '- [ ] milk\n- [x] eggs', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    row('todo').click()
+    await vi.waitFor(() => expect(document.querySelectorAll('#content .cm-lp-task')).toHaveLength(2))
+    const [milk] = document.querySelectorAll<HTMLInputElement>('#content .cm-lp-task')
+    expect(milk.checked).toBe(false)
+    milk.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
+    expect(content()).toBe('- [x] milk\n- [x] eggs')
+    await vi.waitFor(() => expect(dir['todo.md'].content).toBe('- [x] milk\n- [x] eggs'), { timeout: 2000 })
   })
 })
 
@@ -332,7 +378,7 @@ describe('menu', () => {
     acceptConfirm = true
     await menuItem('renamed', '削除')
     await vi.waitFor(() => expect(names(dir)).toEqual(['other.md']))
-    expect($<HTMLTextAreaElement>('#content').value).toBe('')
+    expect(content()).toBe('')
     expect($<HTMLInputElement>('#title').value).toBe('')
   })
 })

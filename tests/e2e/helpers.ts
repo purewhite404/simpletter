@@ -128,5 +128,8 @@ export const dialogs = (page: Page): Promise<string[]> => page.evaluate(() => (w
 export const answerConfirm = (page: Page, ok: boolean): Promise<void> =>
   page.evaluate((v) => void ((window as unknown as { __confirm: boolean }).__confirm = v), ok)
 
+/** The note's text area (CodeMirror's contenteditable). */
+export const editor = (page: Page) => page.locator('#content .cm-content')
+
 export const rows = (page: Page) => page.locator('.file-row')
 export const row = (page: Page, name: string) => page.locator('.file-row', { hasText: new RegExp(`^${name}$`) })

@@ -218,16 +218,184 @@ body {
   padding: 4px 0;
 }
 
+/* ---- The editor (CodeMirror 6, editor.ts). */
+
 #content {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#content .cm-editor {
+  flex: 1;
+  min-height: 0;
   background: transparent;
-  border: none;
   color: var(--bt-text-primary);
+}
+
+#content .cm-editor.cm-focused {
+  outline: none;
+}
+
+#content .cm-scroller {
+  overflow: auto;
+  line-height: 1.6;
+}
+
+#content .cm-content {
+  padding: 4px 0 40vh; /* room to scroll the last line up */
+  caret-color: var(--bt-text-primary);
+}
+
+#content .cm-line {
+  padding: 0 2px;
+}
+
+#content .cm-cursor {
+  border-left-color: var(--bt-text-primary);
+}
+
+#content .cm-selectionBackground,
+#content .cm-focused .cm-selectionBackground,
+#content .cm-content ::selection {
+  background: var(--bt-accent-soft) !important;
+}
+
+#content .cm-placeholder {
+  color: var(--bt-text-muted);
+}
+
+/* Files other than notes: plain monospace text, as before. */
+#content .cm-plain .cm-scroller {
   font-family: var(--bt-font-mono);
   font-size: var(--bt-font-size-sm);
-  line-height: 1.6;
-  resize: none;
-  outline: none;
+}
+
+/* Markdown notes: live preview (livePreview.ts). */
+#content .cm-markdown .cm-scroller {
+  font-family: var(--bt-font-ui);
+  font-size: var(--bt-font-size-md);
+  line-height: 1.7;
+}
+
+.cm-lp-h1,
+.cm-lp-h2,
+.cm-lp-h3,
+.cm-lp-h4,
+.cm-lp-h5,
+.cm-lp-h6 {
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.cm-lp-h1 {
+  font-size: 1.6em;
+  padding-top: 0.4em !important;
+}
+
+.cm-lp-h2 {
+  font-size: 1.35em;
+  padding-top: 0.3em !important;
+}
+
+.cm-lp-h3 {
+  font-size: 1.18em;
+}
+
+.cm-lp-h4 {
+  font-size: 1.05em;
+}
+
+.cm-lp-h5,
+.cm-lp-h6 {
+  font-size: 1em;
+  color: var(--bt-text-secondary);
+}
+
+.cm-lp-strong {
+  font-weight: 700;
+}
+
+.cm-lp-em {
+  font-style: italic;
+}
+
+.cm-lp-strike {
+  text-decoration: line-through;
+}
+
+.cm-lp-code {
+  font-family: var(--bt-font-mono);
+  font-size: 0.9em;
+  background: var(--bt-bg-3);
+  border-radius: 4px;
+  padding: 1px 3px;
+}
+
+.cm-lp-link {
+  color: var(--bt-accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cm-lp-url,
+.cm-lp-listmark {
+  color: var(--bt-text-muted);
+}
+
+.cm-lp-quote {
+  border-left: 3px solid var(--bt-border-strong);
+  padding-left: 12px !important;
+  color: var(--bt-text-secondary);
+}
+
+.cm-lp-bullet {
+  display: inline-block;
+  min-width: 0.9em;
+  color: var(--bt-text-secondary);
+}
+
+.cm-lp-task {
+  margin: 0 4px 0 0;
+  vertical-align: middle;
+  cursor: pointer;
+  accent-color: var(--bt-accent);
+}
+
+.cm-lp-done {
+  color: var(--bt-text-muted);
+  text-decoration: line-through;
+}
+
+.cm-lp-hr {
+  display: inline-block;
+  width: 100%;
+  vertical-align: middle;
+  border-top: 1px solid var(--bt-border-strong);
+}
+
+.cm-lp-codeblock {
+  font-family: var(--bt-font-mono);
+  font-size: var(--bt-font-size-sm);
+  background: var(--bt-bg-1);
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.cm-lp-fence {
+  font-size: 0.6em;
+  line-height: 1;
+}
+
+.cm-lp-codeblock-first {
+  border-top-left-radius: var(--bt-radius-sm);
+  border-top-right-radius: var(--bt-radius-sm);
+}
+
+.cm-lp-codeblock-last {
+  border-bottom-left-radius: var(--bt-radius-sm);
+  border-bottom-right-radius: var(--bt-radius-sm);
 }
 
 .ctx-menu {

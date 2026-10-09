@@ -31,7 +31,7 @@ export const NOTES_MARKUP = `
         </button>
         <input id="title" placeholder="無題のメモ" />
       </div>
-      <textarea id="content" placeholder="ここに書く…（# 見出し、**太字**、- 箇条書き に対応）"></textarea>
+      <div id="content"></div>
     </div>
   </div>
 </div>

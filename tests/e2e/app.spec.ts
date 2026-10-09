@@ -2,25 +2,25 @@ import { expect, test } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { answerConfirm, dialogs, launch, removeDir, row, rows, stubDialogs, tempDir, typeFolder } from './helpers'
+import { answerConfirm, dialogs, editor, launch, removeDir, row, rows, stubDialogs, tempDir, typeFolder } from './helpers'
 
 const mdFiles = (dir: string) => readdirSync(dir).filter((n) => n.endsWith('.md')).sort()
 
 test('a folder typed into the bar lists its notes; typing saves to disk', async () => {
   const dir = tempDir('simpletter-notes-')
   writeFileSync(join(dir, 'b.md'), 'note B')
-  writeFileSync(join(dir, 'a.md'), '# A')
+  writeFileSync(join(dir, 'a.md'), 'note A')
   writeFileSync(join(dir, 'skip.txt'), 'not a note')
   const app = await launch()
   try {
     await expect(app.page.locator('#picker-screen')).toBeVisible()
     await typeFolder(app.page, dir)
     await expect(rows(app.page)).toHaveText(['a', 'b'])
-    await expect(app.page.locator('#content')).toHaveValue('# A') // the first note opens
+    await expect(editor(app.page)).toHaveText('note A') // the first note opens
 
     await row(app.page, 'b').click()
-    await expect(app.page.locator('#content')).toHaveValue('note B')
-    await app.page.locator('#content').fill('note B, edited')
+    await expect(editor(app.page)).toHaveText('note B')
+    await editor(app.page).fill('note B, edited')
     await expect.poll(() => readFileSync(join(dir, 'b.md'), 'utf-8')).toBe('note B, edited')
 
     await app.page.getByRole('button', { name: '＋ 新規' }).click()
@@ -48,7 +48,7 @@ test('a file given on the command line (a double-click in Explorer) opens in its
     await app.close()
 
     app = await launch(profile, [join(dir, '日本語 メモ.md')])
-    await expect(app.page.locator('#content')).toHaveValue('opened from Explorer')
+    await expect(editor(app.page)).toHaveText('opened from Explorer')
     await expect(app.page.locator('#title')).toHaveValue('日本語 メモ')
     await expect(app.page.getByRole('combobox', { name: 'フォルダのパス' })).toHaveValue(dir)
     await expect(rows(app.page)).toHaveText(['a', '日本語 メモ'])
@@ -57,7 +57,8 @@ test('a file given on the command line (a double-click in Explorer) opens in its
 
     // Not a note: opened and listed alongside the notes (like Brighterm's "Open in Notes").
     app = await launch(profile, [join(dir, 'log.txt')])
-    await expect(app.page.locator('#content')).toHaveValue('a text file')
+    await expect(editor(app.page)).toHaveText('a text file')
+    await expect(app.page.locator('#content .cm-plain')).toBeVisible() // not a note: plain text
     await expect(rows(app.page)).toHaveText(['a', 'log.txt', '日本語 メモ'])
     await app.close()
 
@@ -67,6 +68,47 @@ test('a file given on the command line (a double-click in Explorer) opens in its
     await expect(app.page.getByRole('combobox', { name: 'フォルダのパス' })).toHaveValue(dir)
   } finally {
     await app.close().finally(() => Promise.all([removeDir(profile), removeDir(other), removeDir(dir)]))
+  }
+})
+
+test('live preview: markup shows only on the cursor line; checkboxes and lists work', async () => {
+  const dir = tempDir('simpletter-preview-')
+  const file = join(dir, 'lp.md')
+  writeFileSync(file, '# Title\n\nSome **bold** text\n\n- [ ] milk\n- item\n')
+  const app = await launch()
+  try {
+    await typeFolder(app.page, dir)
+    const page = app.page
+    await expect(editor(page)).toContainText('Some')
+    await page.locator('#content .cm-line', { hasText: 'item' }).click()
+    await page.keyboard.press('End')
+
+    // Elsewhere: formatted, the markup hidden.
+    const heading = page.locator('#content .cm-lp-h1')
+    await expect(heading).toHaveText('Title')
+    await expect(page.locator('#content .cm-lp-strong')).toHaveText('bold')
+    await expect(page.locator('#content .cm-line', { hasText: 'Some' })).toHaveText('Some bold text')
+    await expect(page.locator('#content .cm-lp-task')).toHaveCount(1)
+    await expect(page.locator('#content .cm-line', { hasText: 'item' })).toHaveText('- item') // the cursor's line
+
+    // Click into the heading: its "#" shows; the list's bullet turns into "•".
+    await heading.click()
+    await expect(heading).toHaveText('# Title')
+    await expect(page.locator('#content .cm-line', { hasText: 'item' })).toHaveText('• item')
+
+    // The checkbox ticks the task in the file.
+    await page.locator('#content .cm-lp-task').click()
+    await expect.poll(() => readFileSync(file, 'utf-8')).toContain('- [x] milk')
+
+    // Enter at the end of a list item continues the list.
+    await page.locator('#content .cm-line', { hasText: 'item' }).click()
+    await page.keyboard.press('End')
+    await page.keyboard.press('Enter')
+    await page.keyboard.type('次の項目')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe('# Title\n\nSome **bold** text\n\n- [x] milk\n- item\n- 次の項目\n')
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await app.close().finally(() => removeDir(dir))
   }
 })
 
