@@ -39,6 +39,13 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   preview + list continuation (`insertNewlineContinueMarkup`), anything else → plain mono text. Opening a
   file = `view.setState` (fresh undo history, no change event → no save). Import `markdownLanguage`, never
   `markdown()`: that one drags lang-html/js/css into the bundle.
+  `lists.ts` = list keys (tested in `lists.test.ts`, cursor `‸`): Tab / Shift+Tab move an item **with its
+  sub-items** `LIST_INDENT` (4) spaces (also the markdown `indentUnit`), then `renumber` the ordered lists in
+  the new state's tree (one transaction: `moved.compose(numbers)`): the list the item is in, its ancestors,
+  lists under it; a sub-list started by a moved item or under one counts from 1, others from their first
+  number. No-op (key eaten) for a first item (4 spaces would make code) / a top-level item out; non-items
+  fall through to `indentWithTab`. Enter = lang-markdown with `nonTightLists: false` (else Enter on an empty
+  2nd item inserts a blank line instead of stepping out); stepping out already numbers parent + 1.
   `livePreview.ts` = Obsidian-style live preview: a **StateField** (not a ViewPlugin) whose decorations are a
   pure function `previewDecorations(state)` of tree + selection + focus — unit-tested with an EditorState
   alone. Block marks (`#`, `>`, bullets, fences, `---`) show on the cursor's lines, inline marks (`**`,
@@ -125,14 +132,17 @@ toggle; basic elements; non-.md stays plain; Brighterm build must keep working).
 (~700 KB unminified); Brighterm's CSP allows CM's inline styles. **Brighterm's `notes.spec.ts` still
 assumes a textarea** (`#content` + `toHaveValue`/`fill`) — needs `#content .cm-content` + `toHaveText`
 before this build goes into Brighterm (not done: other repo, ask first).
-Not yet checked by hand: Japanese IME in the live preview (no composing guard: marks around the cursor
-are already shown while composing), long files.
 
 Done (2026-10-09): tables in the live preview (user's choices: a click turns the table back into its text — no
 in-cell editing; no column re-alignment; inline formatting in cells). Tests: Vitest 56 (livePreview 21),
 e2e 7. `dist-brighterm/main.js` ~711 KB, static-scan clean.
 Checked by hand by the user (2026-10-09): works. A wide table doesn't scroll sideways: it fits the width and
 cells wrap — the user wants it that way (keep; `overflow-x: auto` on the wrap only matters for unbreakable text).
+
+Checked by hand (2026-10-09): Japanese IME OK; long files OK for the user's notes.
+
+Done (2026-10-09): list keys (user's request): Tab = 4 spaces; numbered sub-lists restart at 1 on Tab,
+Enter twice back to the parent level counts on. Tests: Vitest 67 (lists 11), e2e 8.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons).

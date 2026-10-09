@@ -3,10 +3,11 @@
 // outside (.txt, .log, …) is plain monospace text, as before.
 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
-import { LanguageSupport } from '@codemirror/language'
-import { deleteMarkupBackward, insertNewlineContinueMarkup, markdownLanguage } from '@codemirror/lang-markdown'
+import { indentUnit, LanguageSupport } from '@codemirror/language'
+import { deleteMarkupBackward, markdownLanguage } from '@codemirror/lang-markdown'
 import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap, placeholder } from '@codemirror/view'
+import { continueList, dedentListItem, indentListItem, LIST_INDENT } from './lists'
 import { focusEffect, livePreview } from './livePreview'
 
 export type EditorKind = 'markdown' | 'plain'
@@ -36,12 +37,14 @@ function extensions(kind: EditorKind, onChange: () => void): Extension[] {
   return [
     ...common,
     new LanguageSupport(markdownLanguage),
+    indentUnit.of(' '.repeat(LIST_INDENT)),
     livePreview(),
     EditorView.editorAttributes.of({ class: 'cm-markdown' }),
     keymap.of([
-      { key: 'Enter', run: insertNewlineContinueMarkup },
+      { key: 'Enter', run: continueList },
       { key: 'Backspace', run: deleteMarkupBackward },
-      indentWithTab,
+      { key: 'Tab', run: indentListItem, shift: dedentListItem }, // list items (lists.ts)
+      indentWithTab, // other lines
       ...defaultKeymap,
       ...historyKeymap
     ])

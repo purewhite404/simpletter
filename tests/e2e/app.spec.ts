@@ -169,6 +169,29 @@ test('live preview: tables are drawn; a click edits the source; arrow keys step 
   }
 })
 
+test('lists: Tab goes 4 spaces in and numbers from 1; Enter twice comes back and counts on', async () => {
+  const dir = tempDir('simpletter-lists-')
+  const file = join(dir, 'l.md')
+  writeFileSync(file, '1. a')
+  const app = await launch()
+  try {
+    const page = app.page
+    await typeFolder(page, dir)
+    await page.locator('#content .cm-line', { hasText: 'a' }).click()
+    await page.keyboard.press('End')
+    for (const key of ['Enter', 'b', 'Enter', 'Tab', 'c', 'Enter', 'd', 'Enter', 'Enter', 'e', 'Enter', 'Tab', 'Shift+Tab']) {
+      if (key.length === 1) await page.keyboard.type(key)
+      else await page.keyboard.press(key)
+    }
+    await page.keyboard.type('f')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe('1. a\n2. b\n    1. c\n    2. d\n3. e\n4. f')
+    await expect(editor(page)).toBeFocused()
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await app.close().finally(() => removeDir(dir))
+  }
+})
+
 test('the bar explains a wrong path and completes subfolders from the disk', async () => {
   const dir = tempDir('simpletter-bar-')
   mkdirSync(join(dir, 'Notebooks'))
