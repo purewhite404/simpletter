@@ -6,6 +6,40 @@ import { answerConfirm, dialogs, editor, launch, removeDir, row, rows, stubDialo
 
 const mdFiles = (dir: string) => readdirSync(dir).filter((n) => n.endsWith('.md')).sort()
 
+test('under test the window is off every display, without the focus, and still paints', async () => {
+  const app = await launch()
+  try {
+    const state = await app.page.evaluate(async () => {
+      type Rect = { x: number; y: number; width: number; height: number }
+      const invoke = (window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, args?: object) => Promise<unknown> } })
+        .__TAURI_INTERNALS__.invoke
+      const win = (cmd: string) => invoke(`plugin:window|${cmd}`, { label: 'main' })
+      const pos = (await win('outer_position')) as { x: number; y: number }
+      const size = (await win('outer_size')) as { width: number; height: number }
+      const monitors = (await win('available_monitors')) as { position: { x: number; y: number }; size: { width: number; height: number } }[]
+      const b: Rect = { ...pos, ...size }
+      const overlaps = (d: Rect) => b.x < d.x + d.width && d.x < b.x + b.width && b.y < d.y + d.height && d.y < b.y + b.height
+      // Off screen must not mean "hidden" (CalculateNativeWinOcclusion is off): frames still come.
+      const frames = await new Promise<number>((done) => {
+        let n = 0
+        const tick = () => (++n >= 3 ? done(n) : requestAnimationFrame(tick))
+        requestAnimationFrame(tick)
+        setTimeout(() => done(n), 2000)
+      })
+      return {
+        visible: await win('is_visible'),
+        focused: await win('is_focused'),
+        overlapsADisplay: monitors.some((m) => overlaps({ ...m.position, ...m.size })),
+        visibilityState: document.visibilityState,
+        frames
+      }
+    })
+    expect(state).toEqual({ visible: true, focused: false, overlapsADisplay: false, visibilityState: 'visible', frames: 3 })
+  } finally {
+    await app.close()
+  }
+})
+
 test('a folder typed into the bar lists its notes; typing saves to disk', async () => {
   const dir = tempDir('simpletter-notes-')
   writeFileSync(join(dir, 'b.md'), 'note B')

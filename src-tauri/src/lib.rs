@@ -95,8 +95,9 @@ async fn copy_path(app: AppHandle, dir: String, name: String) -> Result<(), Stri
 
 /// e2e tests (tests/e2e/) drive the real app over the Chrome DevTools Protocol. Debug builds only:
 /// SIMPLETTER_TEST_DATA_DIR = a WebView2 profile of its own (settings, localStorage),
-/// SIMPLETTER_TEST_CDP_PORT = where Playwright connects. The window opens off screen
-/// without taking the focus, so the user's typing never lands in a test.
+/// SIMPLETTER_TEST_CDP_PORT = where Playwright connects. The window shows off screen, without
+/// taking the focus and without a taskbar button (`show_off_screen`): the user's typing never lands
+/// in a test, and tests never cover the user's windows.
 struct TestMode {
     data_dir: PathBuf,
     cdp_port: u16,
@@ -126,11 +127,44 @@ fn create_main_window(app: &tauri::App) -> tauri::Result<()> {
                  --remote-debugging-port={}",
                 test.cdp_port
             ))
-            .position(30000.0, 0.0)
-            .focused(false);
+            .visible(false)
+            .focused(false)
+            .skip_taskbar(true);
     }
-    window.build()?;
+    let window = window.build()?;
+    if test_mode().is_some() {
+        show_off_screen(&window)?;
+    }
     Ok(())
+}
+
+/// Shows the (hidden) test window past the right edge of every display, without activating it.
+/// Not the builder's `.position()`: tao drops a position that is on no monitor and creates the
+/// window at Windows' default place instead — on screen, in front. Not `show()`: once the window
+/// exists tao forgets `focused(false)` and shows with SW_SHOW, which takes the focus.
+/// Moving after creation (SetWindowPos) isn't clamped; called from `setup` (the main thread),
+/// `set_position` is done before `ShowWindow`.
+#[cfg(windows)]
+fn show_off_screen(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    #[link(name = "user32")]
+    extern "system" {
+        fn ShowWindow(hwnd: *mut std::ffi::c_void, cmd: i32) -> i32;
+    }
+    const SW_SHOWNOACTIVATE: i32 = 4;
+
+    let monitors = window.available_monitors()?;
+    let right = monitors.iter().map(|m| m.position().x + m.size().width as i32).max().unwrap_or(0);
+    let top = monitors.iter().map(|m| m.position().y).min().unwrap_or(0);
+    window.set_position(tauri::PhysicalPosition::new(right + 100, top))?;
+    unsafe {
+        ShowWindow(window.hwnd()?.0, SW_SHOWNOACTIVATE);
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn show_off_screen(window: &tauri::WebviewWindow) -> tauri::Result<()> {
+    window.show()
 }
 
 /// Another launch (a second double-click in Explorer) while this one runs: its file goes to

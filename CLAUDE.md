@@ -141,9 +141,16 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 - **Native dialogs can't be seen or clicked over CDP** (and an off-screen window's dialog mustn't pop
   up on the user's screen): e2e swaps alert/confirm for async stand-ins (`stubDialogs` in helpers.ts).
 - **e2e test mode** (debug builds only, `lib.rs` `test_mode`): `SIMPLETTER_TEST_DATA_DIR` = own WebView2
-  profile, `SIMPLETTER_TEST_CDP_PORT` = `--remote-debugging-port`, window at x=30000 and not focused,
-  `CalculateNativeWinOcclusion` disabled (else Chromium marks it hidden — Brighterm's finding).
-  `additional_browser_args` replaces wry's defaults, so they're repeated there.
+  profile, `SIMPLETTER_TEST_CDP_PORT` = `--remote-debugging-port`, window off screen, not focused, no
+  taskbar button, `CalculateNativeWinOcclusion` disabled (else Chromium marks it hidden — Brighterm's
+  finding). `additional_browser_args` replaces wry's defaults, so they're repeated there.
+  **Off screen (user report 2026-10-09: test windows came up in front of their work):** the builder's
+  `.position(30000, 0)` did nothing — tao keeps a position only if it's on some monitor, else
+  `CW_USEDEFAULT` (on screen, top of the z-order; `focused(false)` only kept the focus). And a later
+  `show()` takes the focus (tao drops `focused(false)` after creation → `SW_SHOW`). So: build hidden +
+  `skip_taskbar`, `set_position` past every monitor's right edge (not clamped after creation), then
+  Win32 `ShowWindow(SW_SHOWNOACTIVATE)` (`show_off_screen`). e2e checks it via the window plugin's
+  commands (visible, not focused, overlaps no monitor, rAF runs) — that test failed before the fix.
 - **Quit with `taskkill` (no /F)** = WM_CLOSE: localStorage is flushed (a hard kill can lose it).
   WebView2 keeps writing the profile for seconds after exit — `removeDir` retries up to 15 s.
 - **Playwright names**: the new-note button's accessible name is「＋ 新規」(its title is「新規メモ」).
@@ -200,6 +207,8 @@ csv/tsv too. Checked by hand by the user (2026-10-09, notes written into the tes
 records raw (fine: their CSVs have none), empty cells, TSV, saving — OK. Asked for: Tab in CSV = `,` (done),
 IME composing inside the cell (fixed as above — re-checked by hand by the user: OK). Not yet checked: the
 installed build's csv association.
+
+Done (2026-10-09): e2e windows really off screen (see Gotchas). e2e 11, all pass off screen.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons).

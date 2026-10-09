@@ -8,8 +8,9 @@ import { join, resolve } from 'node:path'
 /**
  * Drives the real simpletter.exe (a debug build: `npm run test:e2e` builds it) over
  * the Chrome DevTools Protocol of its WebView2. Each launch gets its own WebView2
- * profile and port, and its window opens off screen without the focus
- * (src-tauri/src/lib.rs, test_mode) — the user keeps working while tests run.
+ * profile and port, and its window shows off screen, without the focus or a taskbar button
+ * (src-tauri/src/lib.rs, test_mode / show_off_screen) — the user keeps working while tests run,
+ * and no test window comes up over theirs.
  */
 
 export const EXE = resolve('src-tauri/target/debug/simpletter.exe')
