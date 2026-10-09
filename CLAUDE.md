@@ -148,6 +148,26 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 
 ## Gotchas already paid for
 
+- **Security model (review 2026-10-09, before the first push):** the file commands (`list_files` / `read_file` /
+  `write_file` / `delete_file` / `copy_path` / `open_path`) work on **any** absolute folder — by design: the user
+  edits config files anywhere (user's choice; an allow-list of opened folders wouldn't help either, `open_folder`
+  is callable from JS too). So the one thing that keeps it safe is **no script injection into the WebView**:
+  file contents are only ever shown as text (`textContent`, CM text, widgets built with `createElement`) — never
+  `innerHTML` with file data, never HTML rendering of notes (keep that in mind for "images / links in the
+  preview"), and the CSP (`tauri.conf.json`: `default-src 'self'`, `object-src` / `base-uri` / `form-action` /
+  `frame-ancestors 'none'`; Tauri adds `script-src 'self' 'sha256-…'` — no inline scripts). Defence in depth
+  in `files.rs`: `inside` refuses `<>:"|?*`, control chars (":" = an alternate data stream), trailing dot /
+  space (Windows drops them: `x.bat.` = `x.bat`), device names (`CON`, `nul.txt`, `COM1`, `LPT¹`…); `write`
+  never **creates** a file with an `EXECUTABLE` extension (exe, bat, cmd, ps1, vbs, js, lnk, url, reg… — an
+  existing one is written / read / deleted like any text, user's choice); `read` stops at 1 GB (user's choice;
+  past ~500 MB the WebView's string limit may fail first). The TS side mirrors both (`names.ts`: `safeName`,
+  `isExecutable` — keep the lists in step) so a rename is refused **before** anything is written (a case-only
+  rename refused half-way would leave the note under its `.renaming-` temp name). Non-UTF-8 files still open
+  lossily and are rewritten on the first edit (user's choice: kept as is).
+  e2e can't test `eval` against the CSP (code evaluated over CDP may eval) — it checks an inline `<script>`.
+  Audits 2026-10-09: `npm audit` 0; `cargo audit` 0 vulnerabilities, 2 warnings (glib = Linux only,
+  proc-macro-error = build time). `cargo-audit` is installed (Windows cargo).
+
 - **Saving (`notes.ts`, fixed 2026-10-09 after a review of disk writes):** the save waits 0.4 s for typing
   to stop. Opening another note used to leave that timer running: the old note lost its last words, the new
   one was rewritten with its own text (CRLF → LF), and with a slow read the old text was written *into* the
@@ -265,6 +285,11 @@ in its row checks as well. User-visible → next release is a **minor** (while 0
 Done (2026-10-09): fix — delete from the menu (and the close-after-failed-save question) failed with an ACL error
 (see Gotchas: the dialog plugin's `window.confirm`). Tests: Vitest 96 (dialogs 2), e2e 13. Not yet checked by hand:
 the real dialog (OK / キャンセル) — CDP can't click it.
+
+Done (2026-10-09): security review (see Gotchas: Security model) — name checks, no new executables, 1 GB read cap,
+stricter CSP, `list_files` wants an absolute path; also fixed: a title-field rename finishing after another note
+was opened no longer makes that note's saves go to the renamed file. Tests: Rust 19, Vitest 99, e2e 14.
+User-visible (refused names, `_CON`) → the next release is at least a **patch** (minor already due, see above).
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).

@@ -47,6 +47,8 @@ function fakeHost(folders: Record<string, Folder>, saved: Record<string, unknown
       },
       writeFile: async (h, name, content) => {
         const f = folderOf(h)
+        // Like the native side: a file Windows would run is never created (an existing one is written).
+        if (!key(f, name) && /\.(bat|cmd|exe|ps1)$/i.test(name)) throw new Error(`実行できる種類: ${name}`)
         f[key(f, name) ?? name] = { content, modifiedAt: ++clock }
       },
       deleteFile: async (h, name) => {
@@ -355,6 +357,51 @@ describe('editing', () => {
     title.dispatchEvent(new Event('change'))
     await vi.waitFor(() => expect(names(a)).toEqual(['a_b.md', 'other.md']))
     expect(a['a_b.md'].content).toBe('my note')
+
+    // A device name gets a "_"; the title field shows the name as it was made.
+    title.value = 'con'
+    title.dispatchEvent(new Event('change'))
+    await vi.waitFor(() => expect(names(a)).toEqual(['_con.md', 'other.md']))
+    expect(title.value).toBe('_con')
+  })
+
+  it('a rename never makes a file Windows would run; an existing one is edited and kept', async () => {
+    const a: Folder = {
+      'run.txt': { content: 'echo hi', modifiedAt: 1 },
+      'build.bat': { content: '@echo off', modifiedAt: 1 }
+    }
+    const { host, state } = fakeHost({ A: a }, { folderHandle: handle('A') })
+    await startNotes(root(), host)
+    const title = $<HTMLInputElement>('#title')
+    const executable = (name: string) => `実行できる種類のファイルは新しく作れません: ${name}`
+
+    // The title field: refused before anything is written, the title goes back.
+    state.openFile({ folder: handle('A'), name: 'run.txt' })
+    await vi.waitFor(() => expect(title.value).toBe('run.txt'))
+    title.value = 'run.bat'
+    title.dispatchEvent(new Event('change'))
+    await vi.waitFor(() => expect(dialogs.at(-1)).toBe(executable('run.bat')))
+    expect(title.value).toBe('run.txt')
+    expect(names(a)).toEqual(['build.bat', 'run.txt'])
+
+    // The menu: same. A trailing dot (dropped by Windows) doesn't get around it.
+    await menuItem('run.txt', '名前の変更')
+    const box = $<HTMLInputElement>('.file-rename')
+    box.value = 'run.bat.'
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    await vi.waitFor(() => expect(dialogs.at(-1)).toBe(executable('run.bat')))
+    expect(names(a)).toEqual(['build.bat', 'run.txt'])
+
+    // An existing one: edited as any text; a case-only rename is refused before the note moves away.
+    state.openFile({ folder: handle('A'), name: 'build.bat' })
+    await vi.waitFor(() => expect(content()).toBe('@echo off'))
+    typeContent('@echo on')
+    await vi.waitFor(() => expect(a['build.bat'].content).toBe('@echo on'))
+    title.value = 'BUILD.bat'
+    title.dispatchEvent(new Event('change'))
+    await vi.waitFor(() => expect(dialogs.at(-1)).toBe(executable('BUILD.bat')))
+    expect(names(a)).toEqual(['build.bat', 'run.txt'])
+    expect(a['build.bat'].content).toBe('@echo on')
   })
 })
 

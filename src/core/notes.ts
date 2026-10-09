@@ -12,14 +12,17 @@ import type { FileEntry, FolderHandle, NotesHost } from './host'
 import { NOTES_MARKUP } from './markup'
 import {
   displayName,
+  executableMessage,
   fileKind,
   freeName,
+  isExecutable,
   isListed,
   isMarkdown,
   isSortOrder,
   nameTaken,
   newFileName,
   noteExtension,
+  safeName,
   safeTitle,
   sortFiles,
   type SortOrder
@@ -274,6 +277,9 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
    * would *be* "note.md" on Windows, and deleting the old name would delete the note.
    */
   async function moveFile(from: string, to: string, content: string): Promise<void> {
+    // The native side never creates one: refused half-way, a case-only rename would leave the note under its
+    // temporary name.
+    if (isExecutable(to)) throw new Error(executableMessage(to))
     const fs = host.fs
     const dir = folder()
     if (from.toLowerCase() === to.toLowerCase()) {
@@ -297,6 +303,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     // Read from the folder it was copied in — the current one may have another file of that name.
     const content = await host.fs.readFile(handle, name)
     const newName = freeName(files, name)
+    if (isExecutable(newName)) throw new Error(executableMessage(newName))
     await host.fs.writeFile(folder(), newName, content)
     if (cut) {
       await host.fs.deleteFile(handle, name)
@@ -336,9 +343,10 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
     if (input === null) return
     const title = safeTitle(input)
     if (!title) return
-    const newName = isMarkdown(file.name) ? title + noteExtension(file.name) : title
-    if (newName === file.name) return
+    const newName = safeName(isMarkdown(file.name) ? title + noteExtension(file.name) : title)
+    if (!newName || newName === file.name) return
     if (nameTaken(files, newName, file.name)) throw new Error(`同じ名前のファイルがあります: ${newName}`)
+    if (isExecutable(newName)) throw new Error(executableMessage(newName))
     await flushSave()
     const content = await host.fs.readFile(folder(), file.name)
     await moveFile(file.name, newName, content)
@@ -443,18 +451,28 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp
       return
     }
     const title = safeTitle(titleInput.value)
-    const newName = isMarkdown(currentFile) ? (title || 'Untitled') + noteExtension(currentFile) : title || currentFile
+    const newName =
+      safeName(isMarkdown(currentFile) ? (title || 'Untitled') + noteExtension(currentFile) : title) || currentFile
     if (newName === currentFile) return
     const oldName = currentFile
-    if (nameTaken(files, newName, oldName)) {
+    const refused = nameTaken(files, newName, oldName)
+      ? `同じ名前のファイルがあります: ${newName}`
+      : isExecutable(newName)
+        ? executableMessage(newName)
+        : null
+    if (refused) {
       titleInput.value = displayName(oldName)
-      alert(`同じ名前のファイルがあります: ${newName}`)
+      alert(refused)
       return
     }
     const content = editor.getValue()
     await moveFile(oldName, newName, content)
-    savedText = content
-    currentFile = newName
+    // Still the note shown (the change event comes on blur — e.g. a click on another note, read meanwhile).
+    if (currentFile === oldName) {
+      savedText = content
+      currentFile = newName
+      titleInput.value = displayName(newName) // as it was made safe ("CON" → "_CON")
+    }
     if (extraFile === oldName) extraFile = newName
     await refreshFileList()
   }

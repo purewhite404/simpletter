@@ -79,6 +79,67 @@ test("confirm() isn't the dialog plugin's broken stand-in", async () => {
   }
 })
 
+// Defence in depth: what a script injected into the page could do with the file commands and the page itself.
+test('the file commands never create a runnable file or reach a device / stream; the CSP holds', async () => {
+  const dir = tempDir('simpletter-guard-')
+  writeFileSync(join(dir, 'build.bat'), '@echo off')
+  const app = await launch()
+  try {
+    await expect(app.page.locator('#picker-screen')).toBeVisible()
+    const results = await app.page.evaluate(async (dir) => {
+      const invoke = (
+        window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string, args?: object) => Promise<unknown> } }
+      ).__TAURI_INTERNALS__.invoke
+      const write = (name: string) =>
+        invoke('write_file', { dir, name, content: 'x' }).then(
+          () => 'ok',
+          (e: unknown) => String(e)
+        )
+      const out: Record<string, string> = {}
+      for (const name of [
+        'evil.cmd',
+        'evil.LNK',
+        'evil.bat.',
+        'a.md:hidden',
+        'NUL',
+        'com1.txt',
+        'build.bat',
+        'ok.md'
+      ]) {
+        out[name] = await write(name)
+      }
+      // CSP: base-uri 'none' — a <base> can't send relative URLs elsewhere; no inline script. (Not eval: code
+      // evaluated over CDP may eval whatever the CSP says.)
+      const base = document.createElement('base')
+      base.href = 'https://example.invalid/'
+      document.head.append(base)
+      out.baseURI = document.baseURI.startsWith('https://example.invalid') ? 'moved' : 'kept'
+      base.remove()
+      const script = document.createElement('script')
+      script.textContent = 'window.__injected = true'
+      document.head.append(script)
+      out.inlineScript = '__injected' in window ? 'ran' : 'blocked'
+      script.remove()
+      return out
+    }, dir)
+    expect(results).toEqual({
+      'evil.cmd': '実行できる種類のファイルは新しく作れません: evil.cmd',
+      'evil.LNK': '実行できる種類のファイルは新しく作れません: evil.LNK',
+      'evil.bat.': 'この名前はファイル名に使えません: evil.bat.',
+      'a.md:hidden': 'この名前はファイル名に使えません: a.md:hidden',
+      NUL: 'この名前はファイル名に使えません: NUL',
+      'com1.txt': 'この名前はファイル名に使えません: com1.txt',
+      'build.bat': 'ok', // an existing one is edited like any text
+      'ok.md': 'ok',
+      baseURI: 'kept',
+      inlineScript: 'blocked'
+    })
+    expect(readdirSync(dir).sort()).toEqual(['build.bat', 'ok.md']) // no a.md either (a stream would make one)
+  } finally {
+    await app.close().finally(() => removeDir(dir))
+  }
+})
+
 test('a folder typed into the bar lists its notes; typing saves to disk', async () => {
   const dir = tempDir('simpletter-notes-')
   writeFileSync(join(dir, 'b.md'), 'note B')

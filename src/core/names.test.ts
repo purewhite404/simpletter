@@ -3,11 +3,13 @@ import {
   displayName,
   fileKind,
   freeName,
+  isExecutable,
   isListed,
   isSortOrder,
   nameTaken,
   newFileName,
   noteExtension,
+  safeName,
   safeTitle,
   sortFiles
 } from './names'
@@ -88,5 +90,33 @@ describe('names in a folder (case-insensitive, like Windows)', () => {
     expect(newFileName(named('x.md'), 'X')).toBe('X (2).md')
     expect(newFileName([], '', new Date('2026-10-08T06:30:00Z'))).toBe('メモ-2026-10-08-06-30.md')
     expect(safeTitle(' a/b\\c ')).toBe('a_b_c')
+    expect(safeTitle('a\tb\u0001c')).toBe('a_b_c')
+    expect(newFileName([], 'CON')).toBe('_CON.md')
+  })
+
+  it('safeName: no trailing dots / spaces, device names get a "_"', () => {
+    expect(['x.bat.', 'a. . ', 'To be continued...md', '...'].map(safeName)).toEqual([
+      'x.bat',
+      'a',
+      'To be continued...md',
+      ''
+    ])
+    expect(['CON.md', 'nul', 'Com1.txt', 'lpt¹', 'AUX .log'].map(safeName)).toEqual([
+      '_CON.md',
+      '_nul',
+      '_Com1.txt',
+      '_lpt¹',
+      '_AUX .log'
+    ])
+    expect(['CONFIG.md', 'com10.md', 'console.txt'].map(safeName)).toEqual(['CONFIG.md', 'com10.md', 'console.txt'])
+  })
+
+  it('isExecutable: by the extension, any case', () => {
+    expect(['run.bat', 'X.CMD', 'a.ps1', 'l.lnk', 'app.exe', 'm.js', 'c.settingcontent-ms'].map(isExecutable)).toEqual(
+      Array(7).fill(true)
+    )
+    expect(['a.md', 'config.json', 'bat', '.bashrc', 'notes.bat.md', 'x.json5'].map(isExecutable)).toEqual(
+      Array(6).fill(false)
+    )
   })
 })

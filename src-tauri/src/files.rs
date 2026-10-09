@@ -16,21 +16,94 @@ pub struct FileEntry {
     pub modified_at: u64,
 }
 
-/// `dir` + `name`, if `name` is one plain file name (no separators, no "..", not absolute).
+/// The largest file `read` opens (a bigger one would only exhaust the memory, here and in the WebView).
+const MAX_READ: u64 = 1 << 30; // 1 GB
+
+/// Extensions Windows runs (or follows) on a double-click. A file of one of these is never *created* here:
+/// even a script injected into the WebView couldn't drop one into, say, the Startup folder. Existing ones
+/// are edited as any text. Keep in step with `EXECUTABLE` in src/core/names.ts (it refuses a rename early).
+const EXECUTABLE: &[&str] = &[
+    "exe",
+    "com",
+    "scr",
+    "pif",
+    "msi",
+    "msp",
+    "msc",
+    "cpl",
+    "dll",
+    "bat",
+    "cmd",
+    "ps1",
+    "psm1",
+    "vbs",
+    "vbe",
+    "js",
+    "jse",
+    "wsf",
+    "wsh",
+    "hta",
+    "lnk",
+    "url",
+    "reg",
+    "jar",
+    "scf",
+    "chm",
+    "application",
+    "appref-ms",
+    "settingcontent-ms",
+];
+
+/// Would Windows run `name` on a double-click (by its extension, any case)?
+fn is_executable(name: &str) -> bool {
+    name.rsplit_once('.').is_some_and(|(_, ext)| EXECUTABLE.iter().any(|e| e.eq_ignore_ascii_case(ext)))
+}
+
+/// A device name ("CON", "nul.txt", "COM1 .log"…): opening it reaches the device, not a file.
+fn is_reserved(name: &str) -> bool {
+    let stem = name.split('.').next().unwrap_or(name).trim_end_matches(' ').to_ascii_uppercase();
+    let numbered = |prefix: &str| {
+        stem.strip_prefix(prefix).is_some_and(|n| {
+            let mut chars = n.chars();
+            matches!((chars.next(), chars.next()), (Some('0'..='9' | '¹' | '²' | '³'), None))
+        })
+    };
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered("COM") || numbered("LPT")
+}
+
+/// A name Windows keeps as it is: none of `<>:"|?*` (":" would reach a hidden stream, "a.md:x") or control
+/// characters, no trailing dot or space (dropped: "x.bat." would be "x.bat"), not a device name.
+fn valid_name(name: &str) -> bool {
+    !name.contains(|c: char| c.is_control() || "<>:\"|?*".contains(c))
+        && !name.ends_with(['.', ' '])
+        && !is_reserved(name)
+}
+
+/// `dir` + `name`, if `name` is one plain file name (no separators, no "..", not absolute, `valid_name`).
 pub fn inside(dir: &str, name: &str) -> Result<PathBuf, String> {
-    let dir = Path::new(dir);
-    if !dir.is_absolute() {
-        return Err(format!("フォルダの指定が正しくありません: {}", dir.display()));
-    }
+    let dir = absolute(dir)?;
     let mut components = Path::new(name).components();
     match (components.next(), components.next()) {
-        (Some(Component::Normal(_)), None) if !name.contains(['/', '\\']) => Ok(dir.join(name)),
-        _ => Err(format!("フォルダの外にはアクセスできません: {name}")),
+        (Some(Component::Normal(_)), None) if !name.contains(['/', '\\']) => {}
+        _ => return Err(format!("フォルダの外にはアクセスできません: {name}")),
+    }
+    if !valid_name(name) {
+        return Err(format!("この名前はファイル名に使えません: {name}"));
+    }
+    Ok(dir.join(name))
+}
+
+fn absolute(dir: &str) -> Result<&Path, String> {
+    let path = Path::new(dir);
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        Err(format!("フォルダの指定が正しくありません: {dir}"))
     }
 }
 
 pub fn list(dir: &str) -> Result<Vec<FileEntry>, String> {
-    let entries = fs::read_dir(dir).map_err(|e| format!("フォルダを読めません: {dir}（{e}）"))?;
+    let entries = fs::read_dir(absolute(dir)?).map_err(|e| format!("フォルダを読めません: {dir}（{e}）"))?;
     Ok(entries
         .filter_map(|entry| entry.ok())
         .map(|entry| {
@@ -49,8 +122,25 @@ pub fn list(dir: &str) -> Result<Vec<FileEntry>, String> {
 }
 
 pub fn read(dir: &str, name: &str) -> Result<String, String> {
+    read_at_most(dir, name, MAX_READ)
+}
+
+fn read_at_most(dir: &str, name: &str, max: u64) -> Result<String, String> {
+    use std::io::Read;
     let path = inside(dir, name)?;
-    let bytes = fs::read(&path).map_err(|e| format!("読み込めません: {name}（{e}）"))?;
+    let failed = |e: std::io::Error| format!("読み込めません: {name}（{e}）");
+    let file = fs::File::open(&path).map_err(failed)?;
+    let too_big = || format!("大きすぎて開けません: {name}（{} MB まで）", max >> 20);
+    let size = file.metadata().map_err(failed)?.len();
+    if size > max {
+        return Err(too_big());
+    }
+    // Never more than `max`, also if the file grows while it's read.
+    let mut bytes = Vec::with_capacity(size as usize);
+    file.take(max + 1).read_to_end(&mut bytes).map_err(failed)?;
+    if bytes.len() as u64 > max {
+        return Err(too_big());
+    }
     // NUL bytes near the start = not text (images, video, zip…). Reading those as UTF-8 only yields garbage.
     if bytes.iter().take(8000).any(|&b| b == 0) {
         return Err(format!("テキストではないファイルは開けません: {name}"));
@@ -63,8 +153,12 @@ pub fn read(dir: &str, name: &str) -> Result<String, String> {
 pub fn write(dir: &str, name: &str, content: &str) -> Result<(), String> {
     let path = inside(dir, name)?;
     let failed = |e: std::io::Error| format!("保存できません: {name}（{e}）");
+    let existing = fs::symlink_metadata(&path).ok();
+    if existing.is_none() && is_executable(name) {
+        return Err(format!("実行できる種類のファイルは新しく作れません: {name}"));
+    }
     // A symlink would become a plain file: write through it, as before.
-    if fs::symlink_metadata(&path).is_ok_and(|m| m.file_type().is_symlink()) {
+    if existing.is_some_and(|m| m.file_type().is_symlink()) {
         return fs::write(&path, content).map_err(failed);
     }
     let temp = temp_path(&path);
@@ -181,6 +275,79 @@ mod tests {
         #[cfg(windows)]
         assert!(inside(dir, "C:x.md").is_err());
         assert!(inside("relative", "a.md").is_err());
+        assert!(list("relative").is_err());
+    }
+
+    #[test]
+    fn names_windows_would_change_or_treat_as_devices_are_refused() {
+        let dir = std::env::temp_dir();
+        let dir = dir.to_str().unwrap();
+        for ok in [".gitignore", "settings.json", "CONFIG.md", "com10.txt", "lpt.txt", "a b.md", "メモ (2).md"] {
+            assert!(inside(dir, ok).is_ok(), "{ok:?} must be allowed");
+        }
+        for bad in [
+            "a.md:stream",
+            "a.md::$DATA",
+            "x.bat.",
+            "x.md ",
+            "a<b",
+            "a>b",
+            "a|b",
+            "a?b",
+            "a*b",
+            "a\"b",
+            "a\tb",
+            "a\u{1}b",
+            "CON",
+            "con.txt",
+            "Nul.md",
+            "aux",
+            "PRN.log",
+            "COM1",
+            "com9.md",
+            "LPT1",
+            "lpt¹.txt",
+            "COM1 .log",
+        ] {
+            let error = inside(dir, bad).unwrap_err();
+            assert!(error.starts_with("この名前はファイル名に使えません"), "{bad:?}: {error}");
+        }
+    }
+
+    #[test]
+    fn executables_are_never_created_but_existing_ones_are_edited() {
+        let dir = temp_dir("exec");
+        let d = dir.to_str().unwrap();
+        for name in ["run.bat", "x.CMD", "a.ps1", "s.vbs", "l.lnk", "u.url", "app.exe", "t.hta", "k.reg", "m.js"] {
+            let error = write(d, name, "echo hi").unwrap_err();
+            assert!(error.starts_with("実行できる種類のファイルは新しく作れません"), "{name}: {error}");
+        }
+        assert!(names(&dir).is_empty(), "nothing written, no temporary file");
+        // Not executables: settings, scripts read by programs, and names that only contain an extension.
+        for name in ["config.json", "setup.cfg", ".bashrc", "bat", "notes.bat.md"] {
+            write(d, name, "x").unwrap();
+        }
+        // One that's there already is edited (and read, deleted) like any text file.
+        fs::write(dir.join("build.bat"), "@echo off\r\n").unwrap();
+        write(d, "build.bat", "@echo on\n").unwrap();
+        assert_eq!(read(d, "build.bat").unwrap(), "@echo on\n");
+        #[cfg(windows)]
+        write(d, "BUILD.BAT", "same file").unwrap();
+        delete(d, "build.bat").unwrap();
+        assert!(write(d, "build.bat", "again").is_err(), "deleted: it would be a new one");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn files_too_big_are_not_read() {
+        let dir = temp_dir("big");
+        let d = dir.to_str().unwrap();
+        fs::write(dir.join("big.csv"), "a,b\n".repeat(1000)).unwrap();
+        assert_eq!(read_at_most(d, "big.csv", 4000).unwrap().len(), 4000);
+        let error = read_at_most(d, "big.csv", 3999).unwrap_err();
+        assert!(error.starts_with("大きすぎて開けません: big.csv"), "{error}");
+        assert!(read(d, "big.csv").is_ok());
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

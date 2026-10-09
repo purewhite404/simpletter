@@ -77,11 +77,38 @@ export function freeName(files: Named[], name: string): string {
   return candidate
 }
 
-/** A typed title as a file name: characters Windows doesn't allow become "_". */
-export const safeTitle = (title: string): string => title.trim().replace(/[\\/:*?"<>|]/g, '_')
+/** A typed title as a file name: characters Windows doesn't allow (and control characters) become "_". */
+export const safeTitle = (title: string): string => title.trim().replace(/[\\/:*?"<>|\u0000-\u001f\u007f]/g, '_')
+
+/** A device name ("CON", "nul.txt", "COM1 .log"…): Windows opens the device, not a file. */
+const RESERVED = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³]) *(\.|$)/i
+
+/**
+ * A whole file name as Windows keeps it: no trailing dots / spaces (Windows drops them), a device name gets a
+ * leading "_". The native side refuses the others (src-tauri/src/files.rs `valid_name`).
+ */
+export function safeName(name: string): string {
+  const trimmed = name.replace(/[. ]+$/, '')
+  return RESERVED.test(trimmed) ? '_' + trimmed : trimmed
+}
+
+/**
+ * Extensions Windows runs on a double-click: the native side never creates such a file (src-tauri/src/files.rs
+ * `EXECUTABLE`, keep in step). Checked here too, before a rename writes anything.
+ */
+const EXECUTABLE = new Set(
+  'exe com scr pif msi msp msc cpl dll bat cmd ps1 psm1 vbs vbe js jse wsf wsh hta lnk url reg jar scf chm application appref-ms settingcontent-ms'.split(
+    ' '
+  )
+)
+
+export const isExecutable = (name: string): boolean => EXECUTABLE.has(/\.([^.]*)$/.exec(name.toLowerCase())?.[1] ?? '')
+
+/** Why a file can't get `name` (same text as the native side's). */
+export const executableMessage = (name: string): string => `実行できる種類のファイルは新しく作れません: ${name}`
 
 /** A file name for a new note, from the title if one was typed, else "メモ-2026-10-08-15-30". */
 export function newFileName(files: Named[], title: string, now: Date = new Date()): string {
   const base = safeTitle(title) || `メモ-${now.toISOString().slice(0, 16).replace(/[:T]/g, '-')}`
-  return freeName(files, `${base}.md`)
+  return freeName(files, safeName(`${base}.md`))
 }
