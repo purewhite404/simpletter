@@ -1,7 +1,7 @@
 {
   "name": "simpletter",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A small markdown notebook (Tauri). The same UI is Brighterm's Notes plugin.",
   "license": "MIT",
   "type": "module",

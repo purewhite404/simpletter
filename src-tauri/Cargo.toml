@@ -1,6 +1,6 @@
 [package]
 name = "simpletter"
-version = "0.2.2"
+version = "0.3.0"
 description = "A small markdown notebook"
 authors = ["purewhite404"]
 license = "MIT"
