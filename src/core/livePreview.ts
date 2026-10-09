@@ -5,10 +5,12 @@
 //
 // The decorations are a pure function of the state (doc + syntax tree + selection +
 // focus), kept in a StateField: testable with an EditorState alone, no DOM needed.
+// (A StateField may also provide block decorations: a whole table is replaced by a
+// <table> widget, which a ViewPlugin couldn't do.)
 
 import { syntaxTree } from '@codemirror/language'
-import { EditorState, StateEffect, StateField, type Extension, type Range } from '@codemirror/state'
-import { Decoration, EditorView, WidgetType, type DecorationSet } from '@codemirror/view'
+import { EditorSelection, EditorState, Prec, StateEffect, StateField, type Extension, type Range, type StateCommand } from '@codemirror/state'
+import { Decoration, EditorView, keymap, WidgetType, type DecorationSet } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 
 /** The editor gained (true) or lost (false) focus. */
@@ -64,6 +66,207 @@ class RuleWidget extends WidgetType {
     span.className = 'cm-lp-hr'
     return span
   }
+}
+
+// ---- Tables (GFM): shown as a <table> unless the cursor is in them; then the raw text.
+
+export type Align = 'left' | 'center' | 'right' | null
+
+/** A run of a cell's text as shown: `from` = where its first character is, relative to the table's first line. */
+export interface TablePart {
+  from: number
+  text: string
+  cls: string
+}
+
+/**
+ * One cell; `from` = where its source starts, `to` = right after its last shown character (both relative);
+ * empty: where to type (from === to).
+ */
+export interface TableCellModel {
+  from: number
+  to: number
+  parts: TablePart[]
+}
+
+export interface TableModel {
+  /** The table's source text (whole lines): a widget is redrawn only when this changes. */
+  source: string
+  align: Align[]
+  head: TableCellModel[]
+  /** Each body row: its line's start (relative) and its cells, as many as the header has. */
+  rows: { from: number; cells: TableCellModel[] }[]
+}
+
+function alignOf(spec: string): Align {
+  const s = spec.trim()
+  const left = s.startsWith(':')
+  const right = s.endsWith(':') && s.length > 1
+  return left && right ? 'center' : right ? 'right' : left ? 'left' : null
+}
+
+/** A cell's inline markdown as shown: marks dropped, styles as classes (like the body text, unfocused). */
+function cellParts(state: EditorState, cell: SyntaxNode, base: number): TablePart[] {
+  const hidden: [number, number][] = []
+  const styled: [number, number, string][] = []
+  const walk = (n: SyntaxNode): void => {
+    const name = n.name
+    if (name in INLINE_MARK) {
+      styled.push([n.from, n.to, (INLINE_STYLE[name].spec as { class: string }).class])
+      for (const m of n.getChildren(INLINE_MARK[name])) hidden.push([m.from, m.to])
+      if (name === 'InlineCode') {
+        // In a table even code writes "|" as "\|" (GFM): the backslash isn't shown.
+        const code = state.sliceDoc(n.from, n.to)
+        for (let i = code.indexOf('\\|'); i >= 0; i = code.indexOf('\\|', i + 2)) hidden.push([n.from + i, n.from + i + 1])
+      }
+    } else if (name === 'Link') {
+      const [open, close] = n.getChildren('LinkMark')
+      if (open && close) {
+        styled.push([open.to, close.from, 'cm-lp-link'])
+        hidden.push([open.from, open.to], [close.from, n.to])
+      }
+    } else if (name === 'Autolink') {
+      styled.push([n.from, n.to, 'cm-lp-link'])
+      for (const m of n.getChildren('LinkMark')) hidden.push([m.from, m.to])
+      return
+    } else if (name === 'URL' && n.parent?.name !== 'Link' && n.parent?.name !== 'Image') {
+      styled.push([n.from, n.to, 'cm-lp-link'])
+    } else if (name === 'Image') {
+      styled.push([n.from, n.to, 'cm-lp-url'])
+      return
+    } else if (name === 'Escape') {
+      hidden.push([n.from, n.from + 1])
+    }
+    for (let c = n.firstChild; c; c = c.nextSibling) walk(c)
+  }
+  walk(cell)
+
+  const points = new Set([cell.from, cell.to])
+  for (const [a, b] of [...hidden, ...styled]) points.add(a).add(b)
+  const cuts = [...points].filter((p) => p >= cell.from && p <= cell.to).sort((a, b) => a - b)
+  const parts: TablePart[] = []
+  let prevEnd = -1
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const [a, b] = [cuts[i], cuts[i + 1]]
+    if (hidden.some(([h, k]) => h <= a && b <= k)) continue
+    const cls = styled.filter(([s, e]) => s <= a && b <= e).map(([, , c]) => c).join(' ')
+    const text = state.sliceDoc(a, b)
+    const last = parts.at(-1)
+    if (last && last.cls === cls && prevEnd === a) last.text += text
+    else parts.push({ from: a - base, text, cls })
+    prevEnd = b
+  }
+  return parts
+}
+
+/** The cells of a header or body row, split at its "|"s (an empty cell has no TableCell node). */
+function rowCells(state: EditorState, row: SyntaxNode, base: number): TableCellModel[] {
+  const pipes = row.getChildren('TableDelimiter').map((p) => p.from)
+  const nodes = row.getChildren('TableCell')
+  const bounds = [row.from - 1, ...pipes, row.to]
+  const cells: TableCellModel[] = []
+  for (let i = 0; i + 1 < bounds.length; i++) {
+    const from = bounds[i] + 1
+    const to = bounds[i + 1]
+    const blank = !state.sliceDoc(from, to).trim()
+    // The text before a leading "|" and after a trailing one isn't a cell.
+    if (blank && pipes.length && (i === 0 || i === bounds.length - 2)) continue
+    const node = nodes.find((n) => n.from >= from && n.to <= to)
+    if (node) {
+      const parts = cellParts(state, node, base)
+      const last = parts.at(-1)
+      // `to`: right after the last character shown ("**bold|**", not after the marks).
+      cells.push({ from: node.from - base, to: last ? last.from + last.text.length : node.to - base, parts })
+    } else {
+      const at = Math.min(from + 1, to) - base // "|   |": type after one space
+      cells.push({ from: at, to: at, parts: [] })
+    }
+  }
+  return cells
+}
+
+/** What a <table> widget needs to show the table `node` (a Table node of the syntax tree). */
+export function tableModel(state: EditorState, node: SyntaxNode): TableModel {
+  const doc = state.doc
+  const base = doc.lineAt(node.from).from
+  const end = doc.lineAt(node.to).to
+  const header = node.getChild('TableHeader')
+  const head = header ? rowCells(state, header, base) : []
+  const delim = node.getChildren('TableDelimiter').find((d) => d.to - d.from > 1)
+  const specs = delim ? doc.sliceString(delim.from, delim.to).trim().replace(/^\|/, '').replace(/\|$/, '').split('|') : []
+  const n = head.length
+  const rows = node.getChildren('TableRow').map((row) => {
+    const lineEnd = doc.lineAt(row.from).to - base
+    const cells = rowCells(state, row, base).slice(0, n)
+    while (cells.length < n) cells.push({ from: lineEnd, to: lineEnd, parts: [] })
+    return { from: doc.lineAt(row.from).from - base, cells }
+  })
+  return {
+    source: doc.sliceString(base, end),
+    align: Array.from({ length: n }, (_, i) => alignOf(specs[i] ?? '')),
+    head,
+    rows
+  }
+}
+
+class TableWidget extends WidgetType {
+  constructor(readonly model: TableModel) {
+    super()
+  }
+  eq(other: TableWidget): boolean {
+    return other.model.source === this.model.source
+  }
+  get estimatedHeight(): number {
+    return (this.model.rows.length + 1) * 33 + 8
+  }
+  toDOM(): HTMLElement {
+    const { model } = this
+    const wrap = document.createElement('div')
+    wrap.className = 'cm-lp-table-wrap'
+    const table = document.createElement('table')
+    table.className = 'cm-lp-table'
+    const addRow = (parent: HTMLElement, from: number, cells: TableCellModel[], tag: 'th' | 'td') => {
+      const tr = document.createElement('tr')
+      tr.dataset.from = String(from)
+      cells.forEach((cell, i) => {
+        const td = document.createElement(tag)
+        td.dataset.to = String(cell.to)
+        if (model.align[i]) td.style.textAlign = model.align[i]!
+        for (const part of cell.parts) {
+          const span = document.createElement('span')
+          if (part.cls) span.className = part.cls
+          span.dataset.part = String(part.from)
+          span.textContent = part.text
+          td.appendChild(span)
+        }
+        tr.appendChild(td)
+      })
+      parent.appendChild(tr)
+    }
+    const thead = document.createElement('thead')
+    addRow(thead, 0, model.head, 'th')
+    const tbody = document.createElement('tbody')
+    for (const row of model.rows) addRow(tbody, row.from, row.cells, 'td')
+    table.append(thead, tbody)
+    wrap.appendChild(table)
+    return wrap
+  }
+  // The editor must see the mousedown: the handler below puts the cursor into the source.
+  ignoreEvent(event: Event): boolean {
+    return event.type !== 'mousedown'
+  }
+}
+
+/** Where in the table's source (relative) a click on its widget at `target` goes. */
+function tableClickOffset(target: HTMLElement, event: MouseEvent): number {
+  const cell = target.closest<HTMLElement>('td, th')
+  if (!cell) return Number(target.closest<HTMLElement>('tr')?.dataset.from ?? 0)
+  // On a character: that character (each shown part is a run of the source as is).
+  const doc = cell.ownerDocument as Document & { caretRangeFromPoint?: (x: number, y: number) => globalThis.Range | null }
+  const caret = doc.caretRangeFromPoint?.(event.clientX, event.clientY)
+  const part = caret?.startContainer.parentElement?.closest<HTMLElement>('[data-part]')
+  if (caret && part && cell.contains(part)) return Number(part.dataset.part) + caret.startOffset
+  return Number(cell.dataset.to) // elsewhere in the cell: after its text
 }
 
 const hide = Decoration.replace({})
@@ -228,6 +431,24 @@ export function previewDecorations(state: EditorState): DecorationSet {
         case 'Escape':
           if (!touches(node.from, node.to)) add(hide, node.from, node.from + 1)
           return
+        case 'Table': {
+          const from = doc.lineAt(node.from).from
+          const to = doc.lineAt(node.to).to
+          // In a list or quote it stays text (a block widget there would swallow the > / - marks).
+          if (node.parent?.name === 'Document' && !onLines(from, to)) {
+            out.push(Decoration.replace({ widget: new TableWidget(tableModel(state, node)), block: true }).range(from, to))
+            return false
+          }
+          addLines('cm-lp-table-src', from, to)
+          const delim = node.getChildren('TableDelimiter').find((d) => d.to - d.from > 1)
+          if (delim) out.push(lineClass('cm-lp-table-delim').range(doc.lineAt(delim.from).from))
+          for (const row of [...node.getChildren('TableHeader'), ...node.getChildren('TableRow')]) {
+            for (const pipe of row.getChildren('TableDelimiter')) add(markClass('cm-lp-table-pipe'), pipe.from, pipe.to)
+          }
+          // Being edited: the raw text, all of it (columns are easier to line up). Nested: like any text
+          // (its > / list marks are inside the table node).
+          return node.parent?.name === 'Document' ? false : undefined
+        }
       }
     }
   })
@@ -261,13 +482,59 @@ const toggleTask = EditorView.domEventHandlers({
   }
 })
 
+/**
+ * ↑ / ↓ next to a table shown as a <table>: CodeMirror's own motion jumps over a replaced block, so step
+ * into its last / first line instead (same column, as far as it goes) — the table turns back into text.
+ */
+function enterTable(dir: 1 | -1): StateCommand {
+  return ({ state, dispatch }) => {
+    const sel = state.selection.main
+    if (state.selection.ranges.length > 1 || !sel.empty) return false
+    const line = state.doc.lineAt(sel.head)
+    const n = line.number + dir
+    if (n < 1 || n > state.doc.lines) return false
+    const next = state.doc.line(n)
+    let target: { from: number; to: number } | null = null
+    state.field(previewField).between(next.from, next.to, (from, to, deco) => {
+      if (!(deco.spec.widget instanceof TableWidget)) return
+      if (dir === 1 ? from === next.from : to === next.to) target = { from, to }
+    })
+    if (!target) return false
+    const into = state.doc.lineAt(dir === 1 ? (target as { from: number }).from : (target as { to: number }).to)
+    const pos = into.from + Math.min(sel.head - line.from, into.length)
+    dispatch(state.update({ selection: EditorSelection.cursor(pos), scrollIntoView: true, userEvent: 'select' }))
+    return true
+  }
+}
+/** ↓ / ↑ into a table shown as a <table> (exported for tests). */
+export const enterTableDown = enterTable(1)
+export const enterTableUp = enterTable(-1)
+
+/** Clicking a table puts the cursor there in its source (the table turns back into text). */
+const editTable = EditorView.domEventHandlers({
+  mousedown(event, view) {
+    const target = event.target as HTMLElement
+    const wrap = target.closest?.<HTMLElement>('.cm-lp-table-wrap')
+    if (!wrap || event.button !== 0) return false
+    const start = view.posAtDOM(wrap)
+    const pos = Math.min(start + tableClickOffset(target, event), view.state.doc.length)
+    event.preventDefault()
+    // Focus first: gaining focus may take the browser's selection — then put the cursor where clicked.
+    view.focus()
+    view.dispatch({ selection: { anchor: pos }, scrollIntoView: true })
+    return true
+  }
+})
+
 /** The live-preview extension (markdown notes only). */
 export function livePreview(): Extension {
   return [
     focusField,
     previewField,
     EditorView.focusChangeEffect.of((_state, focusing) => setFocused.of(focusing)),
-    toggleTask
+    toggleTask,
+    editTable,
+    Prec.high(keymap.of([{ key: 'ArrowDown', run: enterTableDown }, { key: 'ArrowUp', run: enterTableUp }]))
   ]
 }
 

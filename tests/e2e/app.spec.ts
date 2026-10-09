@@ -112,6 +112,63 @@ test('live preview: markup shows only on the cursor line; checkboxes and lists w
   }
 })
 
+test('live preview: tables are drawn; a click edits the source; arrow keys step in and out', async () => {
+  const dir = tempDir('simpletter-table-')
+  const file = join(dir, 't.md')
+  const source = 'before\n\n| 左 | 中 | 右 |\n|:--|:-:|--:|\n| **太字** | b | 1 |\n| x | y | 22 |\n\nafter\n'
+  writeFileSync(file, source)
+  const app = await launch()
+  try {
+    const page = app.page
+    const table = page.locator('#content .cm-lp-table')
+    const line = (text: string) => page.locator('#content .cm-line', { hasText: text })
+    await typeFolder(page, dir)
+    await line('after').click()
+
+    // Drawn as a table: header, alignment, formatting in cells.
+    await expect(table.locator('th')).toHaveText(['左', '中', '右'])
+    await expect(table.locator('td')).toHaveText(['太字', 'b', '1', 'x', 'y', '22'])
+    await expect(table.locator('td .cm-lp-strong')).toHaveText('太字')
+    await expect(table.locator('th').nth(1)).toHaveCSS('text-align', 'center')
+    await expect(table.locator('th').nth(2)).toHaveCSS('text-align', 'right')
+
+    // A click on a cell: the table turns back into its text, the cursor where clicked.
+    const cell = table.locator('td', { hasText: /^x$/ })
+    const box = (await cell.boundingBox())!
+    await page.mouse.click(box.x + box.width - 3, box.y + box.height / 2) // right of the "x"
+    await expect(table).toHaveCount(0)
+    await expect(line('| x | y | 22 |')).toBeVisible()
+    await page.keyboard.type('!')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe(source.replace('| x |', '| x! |'))
+
+    // Out of it: drawn again, with the edit.
+    await line('after').click()
+    await expect(table.locator('td').nth(3)).toHaveText('x!')
+
+    // ↓ from the blank line above steps into the table's first line; ↑ back out draws it again.
+    await line('before').click()
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowDown')
+    await expect(table).toHaveCount(0)
+    await page.keyboard.type('#')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toContain('#| 左 |')
+    await page.keyboard.press('Backspace')
+    await page.keyboard.press('ArrowUp')
+    await expect(table).toHaveCount(1)
+    // ↑ from the blank line below: into its last line.
+    await line('after').click()
+    await page.keyboard.press('ArrowUp')
+    await page.keyboard.press('ArrowUp')
+    await expect(table).toHaveCount(0)
+    await page.keyboard.press('End')
+    await page.keyboard.type('!')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toContain('| x! | y | 22 |!\n')
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await app.close().finally(() => removeDir(dir))
+  }
+})
+
 test('the bar explains a wrong path and completes subfolders from the disk', async () => {
   const dir = tempDir('simpletter-bar-')
   mkdirSync(join(dir, 'Notebooks'))

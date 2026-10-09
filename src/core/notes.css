@@ -383,6 +383,42 @@ body {
   padding-right: 10px !important;
 }
 
+/* Tables: a <table> widget; with the cursor inside, the raw text in mono. */
+.cm-lp-table-wrap {
+  overflow-x: auto;
+  padding: 6px 2px;
+  cursor: text;
+}
+
+.cm-lp-table {
+  border-collapse: collapse;
+  line-height: 1.5;
+}
+
+.cm-lp-table th,
+.cm-lp-table td {
+  border: 1px solid var(--bt-border-strong);
+  padding: 4px 10px;
+  min-width: 2em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cm-lp-table th {
+  background: var(--bt-bg-1);
+  font-weight: 700;
+}
+
+.cm-lp-table-src {
+  font-family: var(--bt-font-mono);
+  font-size: var(--bt-font-size-sm);
+}
+
+.cm-lp-table-delim,
+.cm-lp-table-pipe {
+  color: var(--bt-text-muted);
+}
+
 .cm-lp-fence {
   font-size: 0.6em;
   line-height: 1;

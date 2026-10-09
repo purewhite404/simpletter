@@ -43,8 +43,19 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   pure function `previewDecorations(state)` of tree + selection + focus — unit-tested with an EditorState
   alone. Block marks (`#`, `>`, bullets, fences, `---`) show on the cursor's lines, inline marks (`**`,
   `` ` ``, `[](url)`, `\`) while the selection touches the element (ends inclusive); unfocused = all hidden.
-  Only non-block decorations (a plugin/field may not replace line breaks); hidden fences get `cm-lp-fence`
-  (low line). Checkbox = widget with `ignoreEvent() false` + a `mousedown` handler that flips `[ ]`/`[x]`.
+  Hidden fences get `cm-lp-fence` (low line). Checkbox = widget with `ignoreEvent() false` + a `mousedown`
+  handler that flips `[ ]`/`[x]`.
+  **Tables** (top level only): off the cursor's lines the whole table (full lines) is one `block: true`
+  replace with `TableWidget` (a StateField may provide block decorations; a ViewPlugin may not). Its data =
+  `tableModel(state, node)` (pure, tested): cells split at the row's `TableDelimiter` pipes (empty cells have
+  no `TableCell` node), alignment from the delimiter row, cell text as `parts` with offsets **relative to the
+  table's first line** — so `eq` compares only the source text and an edit above doesn't redraw it. A click:
+  `posAtDOM(wrap)` + the part's offset via `caretRangeFromPoint` (fallback: after the cell's last shown char);
+  `view.focus()` **before** the dispatch (focusing re-reads the DOM selection). CM's ↑↓ jump over a replaced
+  block: `enterTableDown/Up` (Prec.high keymap) step into its first/last line. In a table the next line
+  without a blank line is still a row (GFM). Being edited: raw mono text (`cm-lp-table-src`), not descended;
+  nested in a quote/list: no widget, descended like normal text (its `>` marks are inside the Table node).
+  Test files mark the cursor with `‸` (tables are full of `|`).
   Styles: `.cm-lp-*` in `notes.css` (`--bt-*` tokens).
 - **`src/standalone/`** — the app: `tauriHost.ts` (Rust commands, localStorage for `storage`, a
   folder handle's `id` = the folder's absolute path), `folderBar.ts` (vanilla port of Brighterm's
@@ -114,5 +125,9 @@ before this build goes into Brighterm (not done: other repo, ask first).
 Not yet checked by hand: Japanese IME in the live preview (no composing guard: marks around the cursor
 are already shown while composing), long files.
 
-Next candidates (not started): tables / images / opening links in the preview, a source-mode toggle,
+Done (2026-10-09): tables in the live preview (user's choices: a click turns the table back into its text — no
+in-cell editing; no column re-alignment; inline formatting in cells). Tests: Vitest 56 (livePreview 21),
+e2e 7. `dist-brighterm/main.js` ~711 KB, static-scan clean.
+
+Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons).

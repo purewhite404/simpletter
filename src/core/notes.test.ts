@@ -251,6 +251,29 @@ describe('editor', () => {
     expect(dir['log.txt'].modifiedAt).toBe(1)
   })
 
+  it('a table shows as a <table>; a click on a cell puts the cursor in its source text', async () => {
+    const text = '# 表\n\n| 品物 | 数 |\n|:--|--:|\n| **りんご** | 3 |\n|  | 5 |\n'
+    const dir: Folder = { 't.md': { content: text, modifiedAt: 1 } }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    row('t').click()
+    await vi.waitFor(() => expect($('#content .cm-lp-table')).not.toBeNull())
+    const cells = () => [...document.querySelectorAll<HTMLElement>('#content .cm-lp-table tr')].map((tr) => [...tr.children].map((c) => c.textContent))
+    expect(cells()).toEqual([['品物', '数'], ['りんご', '3'], ['', '5']])
+    expect($('#content .cm-lp-table td .cm-lp-strong')?.textContent).toBe('りんご')
+    expect($<HTMLElement>('#content .cm-lp-table th:last-child').style.textAlign).toBe('right')
+
+    const click = (el: HTMLElement) => el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
+    const cursor = () => editorView().state.selection.main.head
+    click([...document.querySelectorAll<HTMLElement>('#content .cm-lp-table td')][0])
+    expect(text.slice(0, cursor())).toMatch(/\| \*\*りんご$/) // after the cell's text (inside the **)
+    click([...document.querySelectorAll<HTMLElement>('#content .cm-lp-table td')][2])
+    expect(text.slice(cursor())).toMatch(/^ \| 5 \|/) // an empty cell: inside it, after one space
+
+    await new Promise((r) => setTimeout(r, 600))
+    expect(dir['t.md'].modifiedAt).toBe(1) // not an edit
+  })
+
   it('clicking a checkbox ticks the task in the file', async () => {
     const dir: Folder = { 'todo.md': { content: '- [ ] milk\n- [x] eggs', modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
