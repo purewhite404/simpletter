@@ -58,13 +58,33 @@ test('a folder typed into the bar lists its notes; typing saves to disk', async 
     await expect.poll(() => readFileSync(join(dir, 'b.md'), 'utf-8')).toBe('note B, edited')
 
     await app.page.getByRole('button', { name: '＋ 新規' }).click()
+    await expect(app.page.locator('#title')).toHaveValue(/^Untitled-/) // the new note shows (as the user would see)
     await app.page.locator('#title').fill('買い物')
     await app.page.locator('#title').press('Enter')
     await expect(row(app.page, '買い物')).toBeVisible()
     expect(mdFiles(dir)).toEqual(['a.md', 'b.md', '買い物.md'])
+    expect(readFileSync(join(dir, 'b.md'), 'utf-8')).toBe('note B, edited')
     expect(app.pageErrors).toEqual([])
   } finally {
     await app.close().finally(() => removeDir(dir))
+  }
+})
+
+test('closing the window right after typing saves the last words first', async () => {
+  const dir = tempDir('simpletter-close-')
+  writeFileSync(join(dir, 'a.md'), 'note A')
+  const app = await launch()
+  let closed = false
+  try {
+    await typeFolder(app.page, dir)
+    await expect(editor(app.page)).toHaveText('note A')
+    await editor(app.page).fill('last words')
+    const { killed } = await app.close() // at once: well within the 0.4 s the save waits for
+    closed = true
+    expect(killed).toBe(false) // the window still closes by itself
+    expect(readFileSync(join(dir, 'a.md'), 'utf-8')).toBe('last words')
+  } finally {
+    await (closed ? Promise.resolve() : app.close()).finally(() => removeDir(dir))
   }
 })
 

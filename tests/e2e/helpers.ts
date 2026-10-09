@@ -48,8 +48,8 @@ function freePort(): Promise<number> {
 export interface App {
   page: Page
   pageErrors: string[]
-  /** Quits like the window's × (settings are flushed), then cleans up. */
-  close(): Promise<void>
+  /** Quits like the window's × (settings are flushed), then cleans up. `killed`: it didn't quit in 5 s. */
+  close(): Promise<{ killed: boolean }>
 }
 
 /**
@@ -93,6 +93,7 @@ export async function launch(dataDir?: string, args: string[] = []): Promise<App
       const timedOut = await Promise.race([exited.then(() => false), sleep(5000).then(() => true)])
       if (timedOut) proc.kill()
       if (!dataDir) await removeDir(profile)
+      return { killed: timedOut }
     }
   }
 }

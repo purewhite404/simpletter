@@ -25,8 +25,14 @@ import {
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T
 
+/** What the one running the UI can ask of it. */
+export interface NotesApp {
+  /** Saves what's being typed right now (the window is about to close). */
+  flush(): Promise<void>
+}
+
 /** Builds the notes UI inside `root`. Resolves once the saved folder (if any) is listed. */
-export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
+export function startNotes(root: HTMLElement, host: NotesHost): Promise<NotesApp> {
   root.innerHTML = NOTES_MARKUP
 
   const pickerScreen = $('picker-screen')
@@ -36,7 +42,10 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
   const fileListEl = $('file-list')
   const titleInput = $<HTMLInputElement>('title')
   // Markdown notes: live preview (markup shows only where the cursor is); other files: plain text.
-  const editor = createEditor($('content'), () => scheduleSave())
+  const editor = createEditor($('content'), () => {
+    edits++
+    scheduleSave()
+  })
   const sortSelect = $<HTMLSelectElement>('sort')
   const toggleSidebarBtn = $<HTMLButtonElement>('toggle-sidebar')
   const sidebarBackdrop = $('sidebar-backdrop')
@@ -82,6 +91,13 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
   let sortOrder: SortOrder = 'name-asc'
   let currentFile: string | null = null // file name of the currently open note
   let saveTimer: ReturnType<typeof setTimeout> | null = null
+  // The open note's text as it is on disk (as the editor shows it: CRLF reads as LF) — nothing to save while
+  // the editor still has exactly that.
+  let savedText = ''
+  // Bumped by each openFile: a note whose read finishes after another was clicked isn't shown.
+  let openRequest = 0
+  // Counts the edits (to tell whether anything was typed while a note was being read).
+  let edits = 0
   // A file opened from outside that isn't listed otherwise (a .txt, .log, config file...); listed alongside the notes.
   let extraFile: string | null = null
 
@@ -128,9 +144,11 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
   async function useFolder(handle: FolderHandle): Promise<void> {
     await flushSave()
     folderHandle = handle
+    openRequest++ // a note of the old folder still being read: not shown
     currentFile = null
     titleInput.value = ''
     editor.setValue('', 'markdown')
+    savedText = ''
     await host.storage.set('folderHandle', handle)
     await refreshFileList()
     await host.fs.showFolderBar(handle)
@@ -329,9 +347,11 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
         clearTimeout(saveTimer)
         saveTimer = null
       }
+      openRequest++
       currentFile = null
       titleInput.value = ''
       editor.setValue('', 'markdown')
+      savedText = ''
     }
     await host.fs.deleteFile(folder(), file.name)
     if (extraFile === file.name) extraFile = null
@@ -339,21 +359,45 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     await refreshFileList()
   }
 
+  /**
+   * Shows note `name`. What's typed into the note shown until then is saved to *that* note first — also
+   * what's typed while `name` is being read: `currentFile` only changes together with the text.
+   */
   async function openFile(name: string): Promise<void> {
-    currentFile = name
+    const request = ++openRequest
+    await flushSave() // read after it's saved: clicking the open note itself reads what was typed
+    const editsBefore = edits
     const content = await host.fs.readFile(folder(), name)
+    if (request !== openRequest) return // another note (or folder) was opened meanwhile
+    // Typed into this very note while it was read again: what's on screen is newer — keep it.
+    if (name === currentFile && edits !== editsBefore) return flushSave()
+    await show(name, content)
+  }
+
+  /**
+   * Shows note `name` with `content`, right away (no await before the switch: the title field and the
+   * editor never belong to different notes). What was typed into the note shown until now is saved to it —
+   * `flushSave` takes the note's name and text before its first await. Resolves once that's saved.
+   */
+  function show(name: string, content: string): Promise<void> {
+    const saving = flushSave()
+    openRequest++ // a note still being read: not shown
+    currentFile = name
     titleInput.value = displayName(name)
     editor.setValue(content, fileKind(name))
+    savedText = editor.getValue()
     renderFileList()
+    return saving
   }
 
   newNoteBtn.addEventListener('click', async () => {
     closeOverlaySidebar()
     const name = `Untitled-${Date.now()}.md`
     await host.fs.writeFile(folder(), name, '')
-    await refreshFileList()
-    await openFile(name)
+    const saving = show(name, '') // empty: nothing to read
     titleInput.focus()
+    await saving
+    await refreshFileList()
   })
 
   searchInput.addEventListener('input', renderFileList)
@@ -366,17 +410,26 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
   async function saveCurrent(): Promise<void> {
     saveTimer = null
     if (!folderHandle) return
+    const text = editor.getValue()
     if (!currentFile) {
       // Typing with no note open (e.g. a brand-new, empty folder) starts a new note.
-      if (!editor.getValue() && !titleInput.value.trim()) return
+      if (!text && !titleInput.value.trim()) return
       currentFile = newFileName(files, titleInput.value)
       titleInput.value = currentFile.replace(/\.md$/i, '')
-      await host.fs.writeFile(folderHandle, currentFile, editor.getValue())
+      await write(currentFile, text)
       await refreshFileList()
       return
     }
-    await host.fs.writeFile(folderHandle, currentFile, editor.getValue())
-    touched(currentFile)
+    if (text === savedText) return // typed and undone: the file has it already
+    const name = currentFile
+    await write(name, text)
+    touched(name)
+  }
+
+  /** Saves `text` as note `name` of the open folder; `savedText` follows if it's still the note shown. */
+  async function write(name: string, text: string): Promise<void> {
+    await host.fs.writeFile(folder(), name, text)
+    if (currentFile === name) savedText = text
   }
 
   async function renameCurrent(): Promise<void> {
@@ -395,6 +448,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     }
     const content = editor.getValue()
     await moveFile(oldName, newName, content)
+    savedText = content
     currentFile = newName
     if (extraFile === oldName) extraFile = newName
     await refreshFileList()
@@ -422,7 +476,7 @@ export function startNotes(root: HTMLElement, host: NotesHost): Promise<void> {
     editor.focus()
   })
 
-  return ready
+  return ready.then(() => ({ flush: flushSave }))
 }
 
 const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err))

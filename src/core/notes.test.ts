@@ -178,6 +178,129 @@ describe('editing', () => {
     expect(a['a.md'].content).toBe('newer')
   })
 
+  it('switching notes right after typing: the old note gets the text, the new one is not written', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B\r\nline', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    row('a').click()
+    await settle()
+    typeContent('A edited')
+    row('b').click() // before the save timer fires
+    await vi.waitFor(() => expect(content()).toBe('B\nline'))
+    await new Promise((r) => setTimeout(r, 600)) // longer than the save delay
+    expect(d['a.md'].content).toBe('A edited')
+    expect(d['b.md']).toEqual({ content: 'B\r\nline', modifiedAt: 1 }) // not even its line endings
+  })
+
+  it('a note slow to read: the save timer firing meanwhile never writes into it', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    const read = host.fs.readFile
+    host.fs.readFile = async (h, name) => {
+      if (name === 'b.md') await new Promise((r) => setTimeout(r, 600)) // longer than the save delay
+      return read(h, name)
+    }
+    await startNotes(root(), host)
+    row('a').click()
+    await settle()
+    typeContent('A edited')
+    row('b').click()
+    await vi.waitFor(() => expect(content()).toBe('B'), { timeout: 2000 })
+    expect(d['a.md'].content).toBe('A edited')
+    expect(d['b.md']).toEqual({ content: 'B', modifiedAt: 1 })
+  })
+
+  it('two notes clicked quickly: the last one shows, also if the first is read last', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 }, 'b.md': { content: 'B', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    const read = host.fs.readFile
+    host.fs.readFile = async (h, name) => {
+      if (name === 'a.md') await new Promise((r) => setTimeout(r, 100))
+      return read(h, name)
+    }
+    await startNotes(root(), host)
+    row('a').click()
+    row('b').click()
+    await new Promise((r) => setTimeout(r, 200)) // both reads are done
+    expect(content()).toBe('B')
+    expect($<HTMLInputElement>('#title').value).toBe('b')
+    typeContent('B edited')
+    await vi.waitFor(() => expect(d['b.md'].content).toBe('B edited'), { timeout: 2000 })
+    expect(d['a.md']).toEqual({ content: 'A', modifiedAt: 1 })
+  })
+
+  it('a new note is the one its title renames at once, even with notes slow to read', async () => {
+    const d: Folder = { 'b.md': { content: 'B', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    const read = host.fs.readFile
+    host.fs.readFile = async (h, name) => {
+      await new Promise((r) => setTimeout(r, 300))
+      return read(h, name)
+    }
+    await startNotes(root(), host)
+    row('b').click()
+    await vi.waitFor(() => expect(content()).toBe('B'))
+    $<HTMLButtonElement>('#new-note').click()
+    await settle() // its empty file is written; nothing to read
+    const title = $<HTMLInputElement>('#title')
+    expect(title.value).toMatch(/^Untitled-/)
+    title.value = '買い物'
+    title.dispatchEvent(new Event('change'))
+    await vi.waitFor(() => expect(names(d)).toEqual(['b.md', '買い物.md']))
+    expect(d['b.md'].content).toBe('B')
+  })
+
+  it('the open note clicked again and typed into while it is read: the typing stays', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    const read = host.fs.readFile
+    host.fs.readFile = async (h, name) => {
+      await new Promise((r) => setTimeout(r, 600)) // the save timer fires meanwhile
+      return read(h, name)
+    }
+    await startNotes(root(), host)
+    row('a').click()
+    await vi.waitFor(() => expect(content()).toBe('A'), { timeout: 2000 })
+    row('a').click()
+    typeContent('A, typed during the read')
+    await new Promise((r) => setTimeout(r, 800))
+    expect(content()).toBe('A, typed during the read')
+    expect(d['a.md'].content).toBe('A, typed during the read')
+  })
+
+  it('text back to what is on disk is not written', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    await startNotes(root(), host)
+    row('a').click()
+    await settle()
+    typeContent('typo')
+    typeContent('A') // undone before the save
+    await new Promise((r) => setTimeout(r, 600))
+    expect(d['a.md']).toEqual({ content: 'A', modifiedAt: 1 })
+
+    typeContent('A2')
+    await vi.waitFor(() => expect(d['a.md'].content).toBe('A2'), { timeout: 2000 })
+    const saved = d['a.md'].modifiedAt
+    typeContent('A23')
+    typeContent('A2') // back to the saved text
+    await new Promise((r) => setTimeout(r, 600))
+    expect(d['a.md'].modifiedAt).toBe(saved)
+  })
+
+  it('flush() saves what is being typed at once (the window is closing)', async () => {
+    const d: Folder = { 'a.md': { content: 'A', modifiedAt: 1 } }
+    const { host } = fakeHost({ D: d }, { folderHandle: handle('D') })
+    const notes = await startNotes(root(), host)
+    await notes.flush() // nothing to save
+    expect(d['a.md'].modifiedAt).toBe(1)
+    row('a').click()
+    await settle()
+    typeContent('last words')
+    await notes.flush()
+    expect(d['a.md'].content).toBe('last words')
+  })
+
   it('by date, the note just edited moves to the top; the order is remembered', async () => {
     const a: Folder = {
       'old note.md': { content: '', modifiedAt: 1 },

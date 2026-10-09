@@ -134,6 +134,20 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
 
 ## Gotchas already paid for
 
+- **Saving (`notes.ts`, fixed 2026-10-09 after a review of disk writes):** the save waits 0.4 s for typing
+  to stop. Opening another note used to leave that timer running: the old note lost its last words, the new
+  one was rewritten with its own text (CRLF → LF), and with a slow read the old text was written *into* the
+  new note. Now: `currentFile`, the title and the editor only change together, in the synchronous `show()`;
+  `flushSave()` before it takes the old note's name and text before its first await; `openRequest` drops a
+  read that finished after another note was clicked; `savedText` (= what's on disk, as the editor has it)
+  skips writes of unchanged text; `edits` keeps what was typed into the open note while it was read again.
+  A new note is shown right after its file is written (no read) — else a title typed at once renamed the
+  *previous* note. `startNotes` resolves to `{ flush }`: `main.ts` calls it on `onCloseRequested`
+  (needs `core:window:allow-destroy`; a failed save asks before closing). `files::write` = temp file next
+  to the note (`.name.simpletter-pid-n.tmp`, not listed) + `ReplaceFileW` (keeps the on-disk name's case —
+  passed the real name via `canonicalize` —, attributes, ACL), `rename` as fallback; symlinks written through.
+  Live preview measured: 500 lines 1.2 ms, 10k 10 ms, 50k 61 ms per cursor move (whole doc) — left as is.
+
 - **`tauri-plugin-dialog` replaces `window.alert` / `window.confirm`** with async versions
   (`init-iife.js`): `confirm()` returns a Promise. `if (!confirm(…))` was always false → delete without
   asking. The core `await`s it (works with Brighterm's sync confirm too). They need the

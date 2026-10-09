@@ -4,6 +4,7 @@
 import './standalone/tokens.css'
 import './core/notes.css'
 import './standalone/standalone.css'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { startNotes } from './core/notes'
 import { FolderBar } from './standalone/folderBar'
 import { createTauriHost, pickFolder, suggestFolders } from './standalone/tauriHost'
@@ -26,4 +27,17 @@ attachFolderBar(bar)
 window.addEventListener('unhandledrejection', (e) => showError(e.reason))
 window.addEventListener('error', (e) => showError(e.error ?? e.message))
 
-void startNotes(document.getElementById('notes-root')!, host)
+const notes = startNotes(document.getElementById('notes-root')!, host)
+
+// Closing the window: what was typed in the last moment (the save waits 0.4 s for typing to stop) is saved
+// first. If that fails, the window stays open unless the user says otherwise — the text is still on screen.
+void getCurrentWindow().onCloseRequested(async (event) => {
+  try {
+    await (await notes).flush()
+  } catch (err) {
+    showError(err)
+    if (!(await confirm(`保存できませんでした。保存せずに閉じますか？\n\n${err instanceof Error ? err.message : String(err)}`))) {
+      event.preventDefault()
+    }
+  }
+})
