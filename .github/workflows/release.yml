@@ -1,0 +1,70 @@
+# A tag v* (npm run bump → commit → git tag -a vX.Y.Z → git push --follow-tags) builds the NSIS installer on
+# Windows and attaches it to a *draft* GitHub release; the user publishes it by hand. Can also be run from the
+# Actions tab with a tag picked in "Use workflow from". e2e is not run here (it drives the real exe: run it locally).
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - run: npm ci
+
+      - name: checks
+        run: |
+          npm run format:check
+          npm run typecheck
+          npm test
+          npm run test:rust
+          cargo fmt --manifest-path src-tauri/Cargo.toml --check
+
+      # The release text = the body of the tagged commit ("simpletter: x.y.z", what's in it since the last tag).
+      - name: release notes
+        id: notes
+        shell: bash
+        run: |
+          {
+            echo 'body<<NOTES_END'
+            git log -1 --format=%b "$GITHUB_SHA"
+            echo
+            echo '---'
+            echo 'インストール: `simpletter_*_x64-setup.exe` をダウンロードして実行します。'
+            echo 'コード署名をしていないので、Windows の SmartScreen が出たら「詳細情報」→「実行」を押してください。'
+            echo 'NOTES_END'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: simpletter ${{ github.ref_name }}
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: true
+          uploadUpdaterJson: false

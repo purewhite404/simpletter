@@ -4,6 +4,13 @@
 [Brighterm](../brighterm) の Notes タイルを切り出したもので、同じ画面のコードが Brighterm の
 Notes プラグインとしても動きます。
 
+## インストール
+
+[Releases](https://github.com/purewhite404/simpletter/releases) から `simpletter_x.y.z_x64-setup.exe` をダウンロードして実行します
+（管理者権限はいりません。新しい版も同じように実行すれば上書きで更新されます）。
+コード署名をしていないので、Windows の SmartScreen（「Windows によって PC が保護されました」）が出たら
+「詳細情報」→「実行」を押してください。
+
 ## できること
 
 - 上のバーにフォルダのパスを入力（または貼り付け）して Enter。入力中はサブフォルダの候補が出ます
@@ -106,6 +113,10 @@ npm run tauri build  # インストーラーを作る → src-tauri\target\relea
 
 バージョンは 5 つのファイルに書かれているので、`npm run bump -- patch`（不具合の修正）/ `minor`（機能の追加）で
 まとめて上げます（`npm run bump` だけなら今のバージョンを表示）。上げるのはインストーラーを配るときだけです。
+
+リリース: `v0.3.0` のようなタグを push すると、GitHub Actions（`.github/workflows/release.yml`）が Windows で
+チェックとビルドをして、インストーラー付きの**下書き**のリリースを作ります。GitHub の Releases で中身を確かめて
+「Publish release」を押すと公開されます。
 
 必要なもの: Node.js、Rust（`rustup`、stable-msvc）、Visual Studio Build Tools（C++）、WebView2（Windows 11 は標準）。
 
