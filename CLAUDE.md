@@ -39,7 +39,7 @@ not bumped with the app.
 - 1.0.0 only when the user says so.
 Then: all checks → `npm run bump -- …` → commit `simpletter: x.y.z` (body: what's in it since the last
 tag, in English) → `git tag -a vx.y.z` → build. Tell the user which bump and why (they can overrule).
-No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0.
+No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0, v0.2.1.
 
 ### From WSL
 
