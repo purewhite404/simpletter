@@ -61,7 +61,10 @@ attaches it to a **draft** release named `simpletter vx.y.z`; text = the tagged 
 note). The user checks and publishes it on GitHub. e2e isn't in CI (run it locally before tagging). Unsigned
 installer. Hand out only the CI build: a local release exe has `C:\Users\<account>\.cargo\registry\…` paths in it
 (panic locations of dependencies). No `gh` CLI here: follow the run on github.com (Actions tab) / ask the user. A failed run: fix, then
-move the tag (`git tag -d`, re-tag, `git push -f origin vx.y.z`) only after asking.
+move the tag (`git tag -d`, re-tag, `git push -f origin vx.y.z`) only after asking. GitHub sends **no** tag event when
+> 3 tags are pushed at once (first push 2026-10-09: v0.2.0–v0.3.0 together, nothing ran; fixed by deleting the remote
+v0.3.0 and pushing it alone — same tag object). First run: ~11 min, all green. Unauthenticated API calls don't see
+draft releases (`/releases` = 0 is normal); `/actions/runs` works (the repo is public).
 
 ### From WSL
 
