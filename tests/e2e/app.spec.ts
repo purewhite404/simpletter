@@ -596,6 +596,47 @@ test('CSV: Japanese typed with the IME goes into the cell at the cursor; the row
   }
 })
 
+test('CSV: the right-click menu inserts and deletes columns in every row', async () => {
+  const dir = tempDir('simpletter-csv-cols-')
+  const file = join(dir, 'c.csv')
+  writeFileSync(file, 'id,a long name,qty\n1,x,2\n3\n')
+  const app = await launch()
+  try {
+    const page = app.page
+    await typeFolder(page, dir)
+    await row(page, 'c.csv').click()
+    const cells = page.locator('#content .cm-csv-cell')
+    const menu = page.locator('.ctx-menu button')
+    await expect(cells).toHaveCount(7)
+    const before = (await cells.nth(0).boundingBox())!.width
+
+    // A right-click on "x": the cursor goes there; delete its column (the widest text was in it: narrower now).
+    await cells.nth(4).click({ button: 'right' })
+    await expect(menu).toHaveText(['切り取り', 'コピー', '貼り付け', '左に列を挿入', '右に列を挿入', '列を削除'])
+    await expect(menu.nth(0)).toBeDisabled() // nothing selected: nothing to cut
+    await menu.filter({ hasText: '列を削除' }).click()
+    await expect(page.locator('.ctx-menu')).toHaveCount(0)
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe('id,qty\n1,2\n3\n')
+    await expect(cells).toHaveText(['id', 'qty', '1', ',2', '3']) // the cursor's row shows its ","
+    expect((await cells.nth(1).boundingBox())!.width).toBeLessThan(before * 2)
+
+    // Right of "id": a new empty column, padded into the short row; the cursor is in it.
+    await cells.nth(0).click({ button: 'right' })
+    await menu.filter({ hasText: '右に列を挿入' }).click()
+    await page.keyboard.type('new')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe('id,new,qty\n1,,2\n3,\n')
+    await expect(editor(page)).toBeFocused()
+
+    // Ctrl+Z: the whole column comes off again at once.
+    await page.keyboard.press('Control+z')
+    await page.keyboard.press('Control+z')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe('id,qty\n1,2\n3\n')
+    expect(app.pageErrors).toEqual([])
+  } finally {
+    await app.close().finally(() => removeDir(dir))
+  }
+})
+
 test('the bar explains a wrong path and completes subfolders from the disk', async () => {
   const dir = tempDir('simpletter-bar-')
   mkdirSync(join(dir, 'Notebooks'))

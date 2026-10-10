@@ -16,6 +16,9 @@
 // whole file once (StateField), widened as lines are edited and read again a moment
 // after typing stops; decorations are only made for the lines in view (ViewPlugin).
 // While the search panel is open, the cursor's lines show their marks as if focused.
+//
+// Right-click: our own menu instead of the WebView's — cut / copy / paste, insert a column left /
+// right, delete the selected columns (csvColumns.ts).
 
 import {
   Facet,
@@ -24,11 +27,15 @@ import {
   type EditorState,
   type Extension,
   type Range,
-  type StateCommand
+  type StateCommand,
+  type TransactionSpec
 } from '@codemirror/state'
+import { isolateHistory } from '@codemirror/commands'
 import { searchPanelOpen } from '@codemirror/search'
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import { fieldWidth, fitLine, parseLine, quoteMarks, scanDoc, type CsvModel, type Delimiter } from './csv'
+import { deleteColumns, insertColumn } from './csvColumns'
+import { openMenu } from './menu'
 
 const delimiter = Facet.define<Delimiter, Delimiter>({ combine: (values) => values[0] ?? ',' })
 
@@ -279,10 +286,89 @@ const tableView = ViewPlugin.fromClass(
         const anchor = event.shiftKey ? view.state.selection.main.anchor : pos
         view.dispatch({ selection: { anchor, head: pos } })
         return true
+      },
+      contextmenu(event, view) {
+        event.preventDefault()
+        let { clientX: x, clientY: y } = event
+        if (event.button === 2) {
+          // The mouse: a click outside the selection moves the cursor there (as a left click would).
+          const target = event.target as HTMLElement
+          const pos = target.classList?.contains('cm-csv-empty') ? view.posAtDOM(target) : view.posAtCoords({ x, y })
+          view.focus()
+          if (pos !== null && !view.state.selection.ranges.some((r) => !r.empty && r.from <= pos && pos <= r.to)) {
+            view.dispatch({ selection: { anchor: pos } })
+          }
+        } else {
+          // The keyboard (menu key, Shift+F10): at the cursor.
+          const at = view.coordsAtPos(view.state.selection.main.head)
+          if (at) ({ left: x, bottom: y } = at)
+        }
+        openMenu(x, y, editMenu(view))
+        return true
       }
     }
   }
 )
+
+/** The selected text (several ranges: one per line), '' = nothing selected. */
+const selectedText = (state: EditorState): string =>
+  state.selection.ranges
+    .filter((r) => !r.empty)
+    .map((r) => state.sliceDoc(r.from, r.to))
+    .join(state.lineBreak)
+
+function editMenu(view: EditorView) {
+  const run = (command: StateCommand) => () => command(view)
+  const nothing = !selectedText(view.state)
+  return [
+    { label: '切り取り', action: () => cut(view), disabled: nothing },
+    { label: 'コピー', action: () => navigator.clipboard.writeText(selectedText(view.state)), disabled: nothing },
+    { label: '貼り付け', action: () => paste(view) },
+    null,
+    { label: '左に列を挿入', action: run(insertColumnLeft) },
+    { label: '右に列を挿入', action: run(insertColumnRight) },
+    { label: '列を削除', action: run(deleteColumn) }
+  ]
+}
+
+async function cut(view: EditorView): Promise<void> {
+  await navigator.clipboard.writeText(selectedText(view.state))
+  view.dispatch(view.state.replaceSelection(''), { userEvent: 'delete.cut', scrollIntoView: true })
+}
+
+async function paste(view: EditorView): Promise<void> {
+  const text = await navigator.clipboard.readText()
+  view.dispatch(view.state.replaceSelection(text), { userEvent: 'input.paste', scrollIntoView: true })
+}
+
+/**
+ * A column edit: an undo step of its own (typing right after it isn't joined to it); the columns' widths are read
+ * again at once (a deleted one may have been the widest).
+ */
+function columnCommand(
+  make: (state: EditorState, delim: Delimiter) => TransactionSpec,
+  userEvent: string
+): StateCommand {
+  return ({ state, dispatch }) => {
+    const spec = make(state, state.facet(delimiter))
+    dispatch(
+      state.update(spec, {
+        effects: rescan.of(null),
+        annotations: isolateHistory.of('full'),
+        userEvent,
+        scrollIntoView: true
+      })
+    )
+    return true
+  }
+}
+
+/** A new empty column left of the cursor's (the selection's leftmost); the cursor goes into it. */
+export const insertColumnLeft = columnCommand((state, delim) => insertColumn(state, delim, 'left'), 'input')
+/** A new empty column right of the cursor's (the selection's rightmost); the cursor goes into it. */
+export const insertColumnRight = columnCommand((state, delim) => insertColumn(state, delim, 'right'), 'input')
+/** Deletes the cursor's column / every column the selection touches, in all rows. */
+export const deleteColumn = columnCommand(deleteColumns, 'delete')
 
 /** Tab: the file's delimiter (a tab in TSV, a comma in CSV) — a new cell; no indenting. Also over a selection. */
 export const insertDelimiter: StateCommand = ({ state, dispatch }) => {

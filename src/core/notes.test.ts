@@ -511,6 +511,72 @@ describe('editor', () => {
     expect(cellTexts()).toEqual(['x', 'y']) // the tab: a 1 ch widget
   })
 
+  it('CSV / TSV: the right-click menu inserts / deletes columns, cuts / copies / pastes', async () => {
+    const dir: Folder = {
+      'data.csv': { content: 'a,b,c\n1,2,3', modifiedAt: 1 },
+      'n.md': { content: '', modifiedAt: 1 }
+    }
+    const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })
+    let clipboard = ''
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (t: string) => void (clipboard = t), readText: async () => clipboard }
+    })
+    await startNotes(root(), host)
+    row('data.csv').click()
+    await vi.waitFor(() => expect(content()).toBe('a,b,c\n1,2,3'))
+    const view = editorView()
+    const menu = () => [...document.querySelectorAll<HTMLButtonElement>('.ctx-menu button')]
+    /** Opens the menu from the keyboard (keeps the selection; a mouse click would move the cursor). */
+    async function choose(item: string, selection: { anchor: number; head?: number }): Promise<void> {
+      view.dispatch({ selection })
+      view.contentDOM.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 0 }))
+      const button = menu().find((b) => b.textContent === item)
+      if (!button) throw new Error(`no "${item}" in the menu`)
+      button.click()
+      await settle()
+    }
+
+    view.contentDOM.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 0 }))
+    expect(menu().map((b) => [b.textContent, b.disabled])).toEqual([
+      ['切り取り', true], // nothing selected
+      ['コピー', true],
+      ['貼り付け', false],
+      ['左に列を挿入', false],
+      ['右に列を挿入', false],
+      ['列を削除', false]
+    ])
+    document.body.click()
+    expect($('.ctx-menu')).toBeNull()
+
+    await choose('右に列を挿入', { anchor: 3 }) // in "b"
+    expect(content()).toBe('a,b,,c\n1,2,,3')
+    expect(view.state.selection.main.head).toBe(4) // in the new cell
+    await choose('左に列を挿入', { anchor: 0 })
+    expect(content()).toBe(',a,b,,c\n,1,2,,3')
+    await choose('列を削除', { anchor: 1, head: 6 }) // "a,b,," : columns 1–3
+    expect(content()).toBe(',c\n,3')
+    await choose('列を削除', { anchor: 0 })
+    expect(content()).toBe('c\n3')
+    await vi.waitFor(() => expect(dir['data.csv'].content).toBe('c\n3'), { timeout: 2000 })
+
+    await choose('コピー', { anchor: 0, head: 1 })
+    expect(clipboard).toBe('c')
+    await choose('貼り付け', { anchor: 3 })
+    expect(content()).toBe('c\n3c')
+    await choose('切り取り', { anchor: 2, head: 4 })
+    expect(clipboard).toBe('3c')
+    expect(content()).toBe('c\n')
+
+    // A markdown note keeps the WebView's own menu.
+    row('n.md').click()
+    await vi.waitFor(() => expect(editorView().state.doc.toString()).toBe(''))
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 })
+    editorView().contentDOM.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+    expect($('.ctx-menu')).toBeNull()
+  })
+
   it('clicking a checkbox ticks the task in the file', async () => {
     const dir: Folder = { 'todo.md': { content: '- [ ] milk\n- [x] eggs', modifiedAt: 1 } }
     const { host } = fakeHost({ D: dir }, { folderHandle: handle('D') })

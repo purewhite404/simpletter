@@ -172,6 +172,22 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   effect); decorations come from a ViewPlugin over `visibleRanges` only (focus = `view.hasFocus`, a parameter
   of the pure `csvDecorations`). No header row, UTF-8 only (Shift_JIS shows garbled), CRLF → LF on save like
   every file (user's choices). Tests: `RangeSet.between` goes layer by layer — sort before comparing.
+  **Columns (2026-10-10, user's request):** `csvColumns.ts` (pure, `csvColumns.test.ts`, `‸` cursor, `«…»`
+  selections): `recordsOf` = every record with document-wide field spans (a quoted line break joins lines),
+  `selectedColumns` = the cursor's column / all columns any range touches (a cell = delimiter + field: right after a
+  `,` = the next column; a range starting at a field's end / ending right after a `,` doesn't take that cell),
+  `insertColumn` left of the leftmost / right of the rightmost (short rows **padded** with delimiters up to it; cursor
+  into the new cell of its row), `deleteColumns` (rows without the column untouched; all columns → empty line; cursor
+  to the cell that took the place). Empty lines never touched. `csvPreview.ts` wraps them as commands
+  (`insertColumnLeft/Right`, `deleteColumn`: one dispatch + `rescan` effect = widths at once + `isolateHistory`
+  'full' = own undo step, else typing / Backspace right after joins it). Only from the **right-click menu** (user's
+  choice, no keys): CSV / TSV's `contextmenu` handler replaces the WebView's menu with ours = 切り取り / コピー /
+  貼り付け (`navigator.clipboard`; wry allows clipboard-read; cut / copy greyed out when nothing is selected) +
+  左に列を挿入 / 右に列を挿入 / 列を削除. A mouse right-click outside a non-empty selection moves the cursor there;
+  the menu key / Shift+F10 (button ≠ 2) keeps it and opens at the cursor. md / plain keep the WebView's menu.
+  `menu.ts` = the one `.ctx-menu` (`openMenu(x, y, entries)`, `null` = separator; `mousedown` on an item is
+  prevented so the editor keeps the focus) — the file list's menu uses it too. e2e: no clipboard (the off-screen
+  window has no focus: `navigator.clipboard` refuses), unit test with a stub.
 - **`src/standalone/`** — the app: `tauriHost.ts` (Rust commands, localStorage for `storage`, a
   folder handle's `id` = the folder's absolute path), `folderBar.ts` (vanilla port of Brighterm's
   `FolderBar.tsx` — Brighterm draws that bar in its shell, here the window does), `folderBarText.ts`
@@ -374,6 +390,11 @@ the window, +5 s). Not yet checked by hand: the real 3-button dialog. User-visib
 Done (2026-10-10): fix — a CSV / TSV line starting with the delimiter (empty first cell) was drawn shifted left (see
 Architecture: `EmptyCell`). Tests: Vitest 112, e2e 16 (the CSV test has a `,7` row: lined up, click → typed into the
 1st cell). User-visible fix → part of the next release (minor already due).
+
+Done (2026-10-10): CSV / TSV column insert / delete from a right-click menu (see Architecture: Columns; user's choices:
+menu only, the WebView's menu replaced incl. cut / copy / paste, all touched columns deleted, short rows padded on
+insert, no row ops / column moves). Tests: Vitest 127 (csvColumns 13), e2e 17. Not yet checked by hand: cut / copy /
+paste from the menu (real clipboard). User-visible → part of the next (minor) release.
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).

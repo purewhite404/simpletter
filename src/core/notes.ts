@@ -10,6 +10,7 @@ import { createEditor } from './editor'
 import { errorText } from './errorText'
 import type { FileEntry, FolderHandle, NotesHost } from './host'
 import { NOTES_MARKUP } from './markup'
+import { openMenu, type MenuItem } from './menu'
 import {
   displayName,
   executableMessage,
@@ -325,16 +326,7 @@ export function startNotes(root: HTMLElement, host: NotesHost, options: NotesOpt
   // ---- Right-click menu on the file list: copy / cut / paste / copy path / rename / delete.
   // The folder is remembered too: a note copied here can be pasted after switching folders.
   let fileClipboard: { handle: FolderHandle; name: string; cut: boolean } | null = null
-  let menuEl: HTMLDivElement | null = null
 
-  function closeMenu(): void {
-    if (menuEl) menuEl.remove()
-    menuEl = null
-  }
-  document.addEventListener('click', closeMenu)
-  document.addEventListener('keydown', (e) => e.key === 'Escape' && closeMenu())
-  window.addEventListener('blur', closeMenu)
-  fileListEl.addEventListener('scroll', closeMenu)
   fileListEl.addEventListener('contextmenu', (e) => {
     if (e.target === fileListEl && fileClipboard) {
       e.preventDefault()
@@ -343,38 +335,21 @@ export function startNotes(root: HTMLElement, host: NotesHost, options: NotesOpt
   })
 
   function showMenu(x: number, y: number, file: FileEntry | null): void {
-    closeMenu()
-    const items: [string, () => unknown][] = []
+    const items: MenuItem[] = []
     if (file) {
-      items.push(['コピー', () => (fileClipboard = { handle: folder(), name: file.name, cut: false })])
-      items.push(['切り取り', () => (fileClipboard = { handle: folder(), name: file.name, cut: true })])
-    }
-    if (fileClipboard) items.push(['貼り付け', pasteFile])
-    if (file) {
-      items.push(['パスのコピー', () => host.fs.copyPath(folder(), file.name)])
-      items.push(['名前の変更', () => renameFile(file)])
-      items.push(['削除', () => deleteNote(file)])
-    }
-    const menu = document.createElement('div')
-    menuEl = menu
-    menu.className = 'ctx-menu'
-    for (const [label, action] of items) {
-      const b = document.createElement('button')
-      b.textContent = label
-      b.addEventListener('click', async (e) => {
-        e.stopPropagation()
-        closeMenu()
-        try {
-          await action()
-        } catch (err) {
-          alert(errorText(err))
-        }
+      items.push({ label: 'コピー', action: () => (fileClipboard = { handle: folder(), name: file.name, cut: false }) })
+      items.push({
+        label: '切り取り',
+        action: () => (fileClipboard = { handle: folder(), name: file.name, cut: true })
       })
-      menu.appendChild(b)
     }
-    document.body.appendChild(menu)
-    menu.style.left = Math.max(0, Math.min(x, window.innerWidth - menu.offsetWidth - 4)) + 'px'
-    menu.style.top = Math.max(0, Math.min(y, window.innerHeight - menu.offsetHeight - 4)) + 'px'
+    if (fileClipboard) items.push({ label: '貼り付け', action: pasteFile })
+    if (file) {
+      items.push({ label: 'パスのコピー', action: () => host.fs.copyPath(folder(), file.name) })
+      items.push({ label: '名前の変更', action: () => renameFile(file) })
+      items.push({ label: '削除', action: () => deleteNote(file) })
+    }
+    openMenu(x, y, items)
   }
 
   /**

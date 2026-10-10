@@ -1,9 +1,18 @@
 // The table view's decorations, from an EditorState alone (no DOM): which text each
 // cell shows and how wide it is, which lines are rows / raw text.
 
+import { history, undo } from '@codemirror/commands'
 import { EditorSelection, EditorState } from '@codemirror/state'
 import { describe, expect, it } from 'vitest'
-import { csvDecorations, csvModelOf, csvPreview, insertDelimiter, rescanEffect } from './csvPreview'
+import {
+  csvDecorations,
+  csvModelOf,
+  csvPreview,
+  deleteColumn,
+  insertColumnLeft,
+  insertDelimiter,
+  rescanEffect
+} from './csvPreview'
 
 /** `doc` with the cursor where "‸" is (no "‸": the editor is unfocused). */
 function setup(text: string, delim: ',' | '\t' = ',') {
@@ -124,6 +133,28 @@ describe('the model while editing', () => {
     state = state.update({ effects: rescanEffect() }).state
     expect(csvModelOf(state).multi).toHaveLength(2)
   })
+})
+
+it('column commands: the widths are read again at once; one undo step each', () => {
+  let state = EditorState.create({
+    doc: 'a,longest,b\n1,2,3',
+    selection: EditorSelection.cursor(3),
+    extensions: [csvPreview(','), history()]
+  })
+  const dispatch = (tr: { state: EditorState }) => void (state = tr.state)
+  deleteColumn({ state, dispatch })
+  expect(state.doc.toString()).toBe('a,b\n1,3')
+  expect(csvModelOf(state).widths).toEqual([1, 2]) // not 8 for the deleted column's text until a rescan
+  insertColumnLeft({ state, dispatch })
+  expect(state.doc.toString()).toBe('a,,b\n1,,3')
+  dispatch(state.update(state.replaceSelection('x'), { userEvent: 'input.type' })) // not joined to the insert
+  expect(state.doc.toString()).toBe('a,x,b\n1,,3')
+  undo({ state, dispatch })
+  expect(state.doc.toString()).toBe('a,,b\n1,,3')
+  undo({ state, dispatch })
+  expect(state.doc.toString()).toBe('a,b\n1,3')
+  undo({ state, dispatch })
+  expect(state.doc.toString()).toBe('a,longest,b\n1,2,3')
 })
 
 it("Tab: the file's delimiter (a tab in TSV, a comma in CSV), also over a selection", () => {

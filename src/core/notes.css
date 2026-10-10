@@ -579,8 +579,19 @@ body {
   font-size: var(--bt-font-size-sm);
 }
 
-.ctx-menu button:hover {
+.ctx-menu button:hover:enabled {
   background: var(--bt-bg-3);
+}
+
+.ctx-menu button:disabled {
+  color: var(--bt-text-muted);
+  cursor: default;
+}
+
+.ctx-menu hr {
+  margin: 4px 6px;
+  border: none;
+  border-top: 1px solid var(--bt-border);
 }
 
 .file-rename {
