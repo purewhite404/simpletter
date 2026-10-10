@@ -1,70 +1,62 @@
-# simpletter
-
-フォルダの中の `.md` / `.csv` / `.txt` などを一覧・編集するメモ帳です（Windows、Tauri 2）。
+# Simpletter
+フォルダの中の ASCII file を一覧・編集するメモ帳です。
 [Brighterm](../brighterm) の Notes を切り出したもので、同じコードが Brighterm のプラグインとしても動きます。
 
-## インストール
-
+## Install
 [Releases](https://github.com/purewhite404/simpletter/releases) の `simpletter_x.y.z_x64-setup.exe` を実行します。
-SmartScreen が出たら「詳細情報」→「実行」。
+SmartScreen が出たら「詳細情報」→「実行」してください。
 
 次の拡張子に関連付け、フォルダの一覧にも出します: `.md` `.markdown` `.csv` `.tsv` `.txt` `.log` `.ini` `.cfg` `.conf`
-`.yaml` `.yml` `.json` `.toml`。それ以外は外から開いたときだけ一覧に加わります。
+`.yaml` `.yml` `.json` `.toml`。それ以外はエクスプローラ等外部から開いたときだけ一覧に加わります。
 
-## 使い方
+## Feature
+- 上のバーにフォルダのパスを入力
+- タイトル欄で Enter するとファイル名を変更
+- 自動保存
+- 実行ファイル（`.exe` `.bat`など）は新規作成不可
+- 1 GB を超えるファイルは閲覧編集共に不可
 
-- 上のバーにフォルダのパスを入力して Enter（Tab で補完）。
-- 編集は 0.4 秒で自動保存。右上の「自動保存」を外すと Ctrl+S で保存します（未保存のときはタイトルバーに `*`）。
-- タイトル欄で Enter するとファイル名が変わります。
-- Ctrl+F: 本文の検索・置換（F3 / Shift+F3 で次・前、Esc で閉じる）。本文の外ではファイル一覧の絞り込み。
-- 実行ファイル（`.exe` `.bat` `.ps1` `.lnk` など）は新しく作れません。1 GB を超えるファイルは開きません。
+### Live Preview
+#### Markdown
+- `.md` / `.markdown` を整形
+- `#` や `**` などの記号はカーソルのある所のみ表示
+- 画像と HTML は未対応
 
-### ライブプレビュー
+#### CSV / TSV
+- Tab で区切り文字を追加
+- UTF-8 のみ対応
 
-`.md` / `.markdown` は Obsidian 風に整形して表示し、`#` や `**` などの記号はカーソルのある所だけ出ます。
-画像と HTML は未対応、リンクはクリックしても開きません。
+## Development
+- 必須パッケージ: Node.js、Rust（stable-msvc）
+- Windowsの場合: Visual Studio Build Tools（C++）
 
-- Tab / Shift+Tab: リストの項目を下の項目ごと 4 スペース下げる・戻す（番号は振り直し）。
-
-### CSV / TSV
-
-- Tab で区切り文字（CSV は `,`、TSV はタブ）。
-- 右クリック: 列の挿入（左・右）・削除。選択範囲にかかる列はまとめて削除します。
-- UTF-8 のみ（Shift_JIS は文字化けします）。
-
-## 開発
-
-必要なもの: Node.js、Rust（stable-msvc）、Visual Studio Build Tools（C++）。PowerShell で:
-
-```powershell
+```sh
 npm install
 npm run tauri dev             # 開発モード
 npm run tauri build           # インストーラー → src-tauri\target\release\bundle\nsis\
 npm run bump -- patch|minor   # 5 つのファイルのバージョンをまとめて上げる
 ```
 
-`v*` のタグを push すると、GitHub Actions がインストーラー付きの下書きリリースを作ります。
+### Test
+```sh
+npm run typecheck #型チェック
+npm test          #Vitest
+npm run test:rust #Rust
+npm run test:e2e  #実アプリを Playwright で操作
+```
 
-### テスト
-
-| コマンド | 内容 |
-|---|---|
-| `npm run typecheck` | 型チェック |
-| `npm test` | Vitest |
-| `npm run test:rust` | Rust |
-| `npm run test:e2e` | 実アプリを Playwright で操作 |
-
-### Brighterm に組み込む
-
+### Embedding into Brighterm
 `npm run build:brighterm` の出力 `dist-brighterm\` を Brighterm の `plugins-builtin\notes\` にコピーします。
 Brighterm の `notes.spec.ts` は本文が textarea の前提なので、`#content .cm-content` に直す必要があります。
 
-### 構成
-
+### Structure
 ```
-src/core/        メモ帳本体（ファイル操作は host 経由だけ）
-src/standalone/  単体アプリ用: フォルダバー、Tauri とのつなぎ
-src/brighterm/   Brighterm プラグイン用の入口
-src-tauri/       Rust: パスの解釈・補完、ファイル操作
-tests/e2e/       e2e
+.
+├── src/
+│   ├── core/        メモ帳本体（ファイル操作は host 経由だけ）
+│   ├── standalone/  単体アプリ用: フォルダバー、Tauri とのつなぎ
+│   └── brighterm/   Brighterm プラグイン用の入口
+├── src-tauri/       Rust: パスの解釈・補完、ファイル操作
+└── tests/
+    └── e2e/         e2e
 ```
