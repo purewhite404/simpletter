@@ -58,7 +58,7 @@ not bumped with the app.
 - 1.0.0 only when the user says so.
 Then: all checks → `npm run bump -- …` → commit `simpletter: x.y.z` (body: what's in it since the last
 tag, in English) → `git tag -a vx.y.z` → build. Tell the user which bump and why (they can overrule).
-No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0, v0.2.1, v0.2.2, v0.3.0.
+No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0, v0.2.1, v0.2.2, v0.3.0, v0.4.0.
 **GitHub release (since 0.3.0, user's choice):** pushing a `v*` tag runs `.github/workflows/release.yml`
 (windows-latest: format / typecheck / unit / rust / `cargo fmt --check`, then `tauri-action@v1` builds NSIS and
 attaches it to a **draft** release named `simpletter vx.y.z`; text = the tagged commit's body + an install / SmartScreen
