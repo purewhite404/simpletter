@@ -148,7 +148,11 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   cell its text fills exactly wraps its last char — e2e checks row heights). The text stays CM's text:
   click / select / IME / undo as usual, saved as is. **A cell = the delimiter before its field + the field**
   (the 1st column has none); width = that, widest in the file (quotes included), max 40 (longer wraps
-  inside), so nothing moves when the cursor's row shows its marks. Delimiters and quotes are **widgets**
+  inside), so nothing moves when the cursor's row shows its marks. An **empty 1st field** (line starts with the
+  delimiter; a mark can't be empty) = `EmptyCell`, a widget `.cm-csv-cell.cm-csv-empty` as wide as the column,
+  `side: -1` (side > 0 would be drawn inside the 2nd cell's inclusive-start mark); before 2026-10-10 it took no room
+  and the row's other cells sat left of their columns. A click on it = the plugin's `mousedown` → cursor at its
+  position (CM alone put it after the `,`, typing into the 2nd cell). An empty line: no cell. Delimiters and quotes are **widgets**
   (`MarkWidget`), never text spans: a delimiter = 1 ch `.cm-csv-sep`, empty off the cursor's lines (or
   unfocused), `,` / `→` dimmed on them; quotes / the 1st of `""` replaced away, or a dimmed `"` widget.
   **IME (user report 2026-10-09: composing text not shown, IME window at the screen's top-left):** the old
@@ -366,6 +370,10 @@ Done (2026-10-09): auto / manual save switch + window title `<file> - simpletter
 choices: check box by the title, default auto, leaving asks save / don't save / cancel, no `*` in auto mode, full file
 name) — see Architecture. Tests: Vitest 111 (manual save 5, dialogs 3), e2e 16 (closing with cancel = the test kills
 the window, +5 s). Not yet checked by hand: the real 3-button dialog. User-visible → part of the next (minor) release.
+
+Done (2026-10-10): fix — a CSV / TSV line starting with the delimiter (empty first cell) was drawn shifted left (see
+Architecture: `EmptyCell`). Tests: Vitest 112, e2e 16 (the CSV test has a `,7` row: lined up, click → typed into the
+1st cell). User-visible fix → part of the next release (minor already due).
 
 Next candidates (not started): images / opening links in the preview, a source-mode toggle,
 app icon (still Tauri's default icons; `tauri icon <png>` makes the set, keep only what NSIS uses).

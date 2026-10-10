@@ -16,7 +16,7 @@ function setup(text: string, delim: ',' | '\t' = ',') {
 
 /**
  * Each line as shown: its cells as "text·width", " | " between them; the text without what's hidden,
- * widgets as their text (a shown tab: "→"). A raw line (a record over several lines): "raw: " + its text. "*" = the cursor's row.
+ * widgets as their text (a shown tab: "→"), an empty first cell (a spacer widget) as "·width". A raw line (a record over several lines): "raw: " + its text. "*" = the cursor's row.
  */
 function shown(text: string, delim: ',' | '\t' = ','): string[] {
   const { state, focused } = setup(text, delim)
@@ -26,10 +26,15 @@ function shown(text: string, delim: ',' | '\t' = ','): string[] {
   const cells: { from: number; to: number; width: string }[] = []
   const lineCls = new Map<number, string>()
   decos.between(0, doc.length, (from, to, deco) => {
-    const spec = deco.spec as { class?: string; attributes?: { style: string }; widget?: { text: string } }
+    const spec = deco.spec as {
+      class?: string
+      attributes?: { style: string }
+      widget?: { text?: string; width?: number }
+    }
     if (from === to && spec.class) lineCls.set(doc.lineAt(from).number, spec.class)
+    else if (spec.widget?.width !== undefined) cells.push({ from, to, width: String(spec.widget.width) })
     else if (spec.class === 'cm-csv-cell') cells.push({ from, to, width: /(\d+)ch/.exec(spec.attributes!.style)![1] })
-    else if (spec.widget) hidden.push({ from, to, text: spec.widget.text })
+    else if (spec.widget) hidden.push({ from, to, text: spec.widget.text! })
     else if (!spec.class) hidden.push({ from, to, text: '' })
   })
   const show = (from: number, to: number) => {
@@ -53,7 +58,7 @@ function shown(text: string, delim: ',' | '\t' = ','): string[] {
     }
     const row = cells
       .filter((c) => c.from >= line.from && c.to <= line.to)
-      .sort((a, b) => a.from - b.from) // between() goes layer by layer, not strictly in order
+      .sort((a, b) => a.from - b.from || a.to - b.to) // between() goes layer by layer, not strictly in order
       .map((c) => `${show(c.from, c.to)}·${c.width}`)
     lines.push((cls.includes('cm-csv-active') ? '* ' : '') + row.join(' | '))
   }
@@ -79,7 +84,14 @@ describe('csvDecorations', () => {
 
   it('a cell starts with the delimiter before it: an empty one in the middle or at the end is there too', () => {
     expect(shown('a,,c\n\nd,ee,f\ng,')).toEqual(['a·1 | ·3 | c·2', '', 'd·1 | ee·3 | f·2', 'g·1 | ·3'])
-    expect(shown(',x‸')).toEqual(['* ,x·2']) // an empty first cell takes no room
+  })
+
+  it('an empty first cell (the line starts with a delimiter) is as wide as its column: the others line up', () => {
+    expect(shown('name,qty\n,3\n,')).toEqual(['name·4 | qty·4', '·4 | 3·4', '·4 | ·4'])
+    expect(shown('name,qty\n,3‸')).toEqual(['name·4 | qty·4', '* ·4 | ,3·4'])
+    expect(shown(',x\n,y')).toEqual(['·0 | x·2', '·0 | y·2']) // the whole column empty
+    expect(shown('\ufeff,x')).toEqual(['·0 | x·2']) // after a BOM
+    expect(shown('a\n\nb')).toEqual(['a·1', '', 'b·1']) // an empty line: no cell
   })
 
   it('TSV: a tab is hidden, "→" on the cursor line; commas are plain text', () => {

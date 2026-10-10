@@ -469,7 +469,8 @@ test('CSV / TSV: listed and drawn as lined-up cells; a click types into the cell
   const dir = tempDir('simpletter-csv-')
   const file = join(dir, 'data.csv')
   // "bananabanana!" is the widest of its column (the first: no delimiter before it): it fills the cell exactly.
-  const source = 'name,qty\n"りんご, 赤",3\nbananabanana!,12\n'
+  // ",7": an empty first cell — as wide as the column all the same.
+  const source = 'name,qty\n"りんご, 赤",3\nbananabanana!,12\n,7\n'
   writeFileSync(file, source)
   writeFileSync(join(dir, 'a.md'), 'note')
   writeFileSync(join(dir, 't.tsv'), 'x\ty')
@@ -481,28 +482,37 @@ test('CSV / TSV: listed and drawn as lined-up cells; a click types into the cell
     await row(page, 'data.csv').click()
     await expect(page.locator('#content .cm-csv')).toBeVisible()
     const cells = page.locator('#content .cm-csv-cell')
-    await expect(cells).toHaveCount(6)
+    await expect(cells).toHaveCount(8)
     /** Where each row's second column starts (they line up) and how wide the first column is. */
     const layout = async () => {
-      const boxes = await Promise.all([0, 1, 2, 3, 4, 5].map(async (i) => (await cells.nth(i).boundingBox())!))
+      const boxes = await Promise.all([0, 1, 2, 3, 4, 5, 6, 7].map(async (i) => (await cells.nth(i).boundingBox())!))
       return {
-        secondX: new Set([1, 3, 5].map((i) => Math.round(boxes[i].x))).size,
-        firstW: new Set([0, 2, 4].map((i) => Math.round(boxes[i].width))).size
+        secondX: new Set([1, 3, 5, 7].map((i) => Math.round(boxes[i].x))).size,
+        firstW: new Set([0, 2, 4, 6].map((i) => Math.round(boxes[i].width))).size
       }
     }
     expect(await layout()).toEqual({ secondX: 1, firstW: 1 })
     const heights = await page
       .locator('#content .cm-csv-row')
-      .evaluateAll((rs) => rs.slice(0, 3).map((r) => r.getBoundingClientRect().height))
+      .evaluateAll((rs) => rs.slice(0, 4).map((r) => r.getBoundingClientRect().height))
     expect(Math.max(...heights)).toBeLessThan(Math.min(...heights) * 1.5) // nothing wrapped onto a 2nd line
     await expect(cells.nth(2)).toHaveText('りんご, 赤') // the quotes are hidden
     await expect(cells.nth(3).locator('.cm-csv-sep')).toHaveText('') // the delimiter: there (its 1 ch), not seen
+
+    // A click into the empty first cell: the cursor goes to the line's start, the text into that cell.
+    const empty = (await cells.nth(6).boundingBox())!
+    await page.mouse.click(empty.x + empty.width / 2, empty.y + empty.height / 2)
+    await page.keyboard.type('z')
+    const edited = source.replace('\n,7\n', '\nz,7\n')
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe(edited)
+    await expect(cells.nth(6)).toHaveText('z')
+    expect(await layout()).toEqual({ secondX: 1, firstW: 1 })
 
     // A click right of "3": the cursor goes after it; that row shows its quotes, the columns stay put.
     const qty = (await cells.nth(3).boundingBox())!
     await page.mouse.click(qty.x + qty.width - 4, qty.y + qty.height / 2)
     await page.keyboard.type('0')
-    await expect.poll(() => readFileSync(file, 'utf-8')).toBe(source.replace(',3\n', ',30\n'))
+    await expect.poll(() => readFileSync(file, 'utf-8')).toBe(edited.replace(',3\n', ',30\n'))
     await expect(page.locator('#content .cm-csv-active')).toHaveCount(1)
     await expect(cells.nth(2)).toHaveText('"りんご, 赤"')
     await expect(cells.nth(3)).toHaveText(',30') // a cell = the delimiter before it + its field

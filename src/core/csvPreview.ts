@@ -3,7 +3,8 @@
 // monospace). The text stays the editor's own text — clicking, selecting, the IME
 // and undo work as anywhere — and the file is saved as it is.
 //
-// A cell = the delimiter before its field (none in the first column) + the field: text
+// A cell = the delimiter before its field (none in the first column) + the field (an empty
+// first field: a spacer widget as wide as the column): text
 // typed right after a delimiter is in that cell. Delimiters and quotes are widgets, not
 // text: off the cursor's lines a delimiter is an empty 1 ch and the quotes are gone; on
 // the cursor's lines both show, dimmed — the columns don't move. (As widgets, the browser
@@ -101,6 +102,43 @@ class MarkWidget extends WidgetType {
   }
 }
 
+/**
+ * An empty first cell (the line starts with a delimiter): a mark can't cover nothing, so a spacer as wide as the
+ * column stands in for it — else the row's other cells would start that much further left.
+ */
+class EmptyCell extends WidgetType {
+  constructor(readonly width: number) {
+    super()
+  }
+  eq(other: EmptyCell): boolean {
+    return other.width === this.width
+  }
+  toDOM(): HTMLElement {
+    const span = document.createElement('span')
+    span.className = 'cm-csv-cell cm-csv-empty'
+    span.style.width = cellWidth(this.width)
+    return span
+  }
+  // The editor must see the mousedown: the plugin's handler puts the cursor at the line's start.
+  ignoreEvent(): boolean {
+    return false
+  }
+}
+
+// + 1px: a cell its text fills exactly would otherwise, rounded, wrap its last character.
+const cellWidth = (width: number): string => `calc(${width}ch + 1px)`
+
+const emptyCells = new Map<number, Decoration>()
+/** side -1: drawn before the next cell's mark (an inclusive-start mark takes a widget with side > 0 in). */
+function emptyCell(width: number): Decoration {
+  let deco = emptyCells.get(width)
+  if (!deco) {
+    deco = Decoration.widget({ widget: new EmptyCell(width), side: -1 })
+    emptyCells.set(width, deco)
+  }
+  return deco
+}
+
 const hide = Decoration.replace({})
 const widget = (text: string, sep: boolean) => Decoration.replace({ widget: new MarkWidget(text, sep) })
 /** [hidden, shown] */
@@ -122,8 +160,7 @@ function cell(width: number): Decoration {
   if (!deco) {
     deco = Decoration.mark({
       class: 'cm-csv-cell',
-      // + 1px: a cell its text fills exactly would otherwise, rounded, wrap its last character.
-      attributes: { style: `width: calc(${width}ch + 1px)` },
+      attributes: { style: `width: ${cellWidth(width)}` },
       inclusiveStart: true, // else CodeMirror draws the delimiter widget at its start outside of it
       inclusiveEnd: true
     })
@@ -159,6 +196,7 @@ export function csvDecorations(
         const to = line.from + f.to
         const width = model.widths[i] ?? fieldWidth(line.text, f, i)
         if (to > from) out.push(cell(width).range(from, to))
+        else if (fields.length > 1) out.push(emptyCell(width).range(from)) // an empty first cell
         if (i > 0) out.push(SEP[delim][Number(active)].range(from, from + 1))
         for (const q of quoteMarks(line.text, f)) {
           out.push((active ? shownQuote : hide).range(line.from + q, line.from + q + 1))
@@ -228,6 +266,19 @@ const tableView = ViewPlugin.fromClass(
     eventHandlers: {
       compositionend() {
         this.compositionEnded()
+      },
+      // A click into an empty first cell: the cursor before the delimiter (CodeMirror itself would pick the
+      // nearest text — after it, in the 2nd cell).
+      mousedown(event, view) {
+        const target = event.target as HTMLElement
+        if (!target.classList?.contains('cm-csv-empty') || event.button !== 0) return false
+        const pos = view.posAtDOM(target)
+        event.preventDefault()
+        // Focus first: gaining focus may take the browser's selection — then put the cursor where clicked.
+        view.focus()
+        const anchor = event.shiftKey ? view.state.selection.main.anchor : pos
+        view.dispatch({ selection: { anchor, head: pos } })
+        return true
       }
     }
   }
