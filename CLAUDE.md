@@ -13,11 +13,11 @@ Talk to the user in Japanese. Commit messages in English (user's request, 2026-1
 
 **Identity (user's request, 2026-10-09):** published as **purewhite404** — no real name anywhere (LICENSE,
 `Cargo.toml` authors, `tauri.conf.json` `bundle.publisher` / `copyright`, test paths use `me`). Identifier
-`com.purewhite404.simpletter` since 0.3.0 (was `com.satoshi.simpletter`: the WebView2 profile = localStorage moved
+`com.purewhite404.simpletter` since 0.3.0 (the earlier one had the user's name in it; the WebView2 profile = localStorage moved
 with it; the user chose not to migrate — last folder / sort order reset once; said in the v0.3.0 release notes only). Commits: repo-local
 `git config` user.name `purewhite404`, email `61584839+purewhite404@users.noreply.github.com` — keep it. The whole
 history was rewritten to that on 2026-10-09 (`git filter-repo` mailmap + replace-text; backup bundle in
-`..\simpletter-backup-2026-10-09.bundle`); old versions keep `com.satoshi.simpletter` as the identifier they had.
+`..\simpletter-backup-2026-10-09.bundle`); old versions keep the old identifier they had.
 
 ## Commands
 
@@ -76,6 +76,13 @@ Same rules as Brighterm: `node_modules` and `target/` are **Windows** builds. Ru
 through `cmd.exe /c "…"`, never `npm i` from WSL, use Windows git. Shells started before Rust
 was installed (2026-10-08) lack cargo on PATH: `cmd.exe /c "set PATH=%USERPROFILE%\.cargo\bin;%PATH% && …"`.
 Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, then `wslpath`).
+
+### On the Mac (2026-10-10)
+
+The user also works on a Mac (`~/simpletter`, own `node_modules` = darwin-arm64). Rust via rustup
+(`~/.cargo/env` sourced from `~/.zshenv`; a non-login shell: `. "$HOME/.cargo/env"` first). `npm run tauri dev`,
+`typecheck`, `test`, `test:rust` work (Rust: 18 — the Windows-only test is skipped); e2e and the NSIS installer are
+Windows only. Repo-local `git config` user set here too (same as above).
 
 ## Architecture
 
@@ -151,7 +158,7 @@ Temp dirs / screenshots: Windows `%TEMP%` (from WSL: `cmd.exe /c echo %TEMP%`, t
   inside), so nothing moves when the cursor's row shows its marks. An **empty 1st field** (line starts with the
   delimiter; a mark can't be empty) = `EmptyCell`, a widget `.cm-csv-cell.cm-csv-empty` as wide as the column,
   `side: -1` (side > 0 would be drawn inside the 2nd cell's inclusive-start mark); before 2026-10-10 it took no room
-  and the row's other cells sat left of their columns. A click on it = the plugin's `mousedown` → cursor at its
+  and the row's other cells were drawn left of their columns. A click on it = the plugin's `mousedown` → cursor at its
   position (CM alone put it after the `,`, typing into the 2nd cell). An empty line: no cell. Delimiters and quotes are **widgets**
   (`MarkWidget`), never text spans: a delimiter = 1 ch `.cm-csv-sep`, empty off the cursor's lines (or
   unfocused), `,` / `→` dimmed on them; quotes / the 1st of `""` replaced away, or a dimmed `"` widget.
