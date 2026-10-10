@@ -44,7 +44,8 @@ jobs:
           npm run test:rust
           cargo fmt --manifest-path src-tauri/Cargo.toml --check
 
-      # The release text = the body of the tagged commit ("simpletter: x.y.z", what's in it since the last tag).
+      # The release text (English) = the body of the tagged commit ("simpletter: x.y.z", what's in it since the last
+      # tag) + an install note.
       - name: release notes
         id: notes
         shell: bash
@@ -54,8 +55,8 @@ jobs:
             git log -1 --format=%b "$GITHUB_SHA"
             echo
             echo '---'
-            echo 'インストール: `simpletter_*_x64-setup.exe` をダウンロードして実行します。'
-            echo 'コード署名をしていないので、Windows の SmartScreen が出たら「詳細情報」→「実行」を押してください。'
+            echo 'Install: download and run `simpletter_*_x64-setup.exe`.'
+            echo 'The installer is not code-signed: if Windows SmartScreen appears, click "More info" → "Run anyway".'
             echo 'NOTES_END'
           } >> "$GITHUB_OUTPUT"
 

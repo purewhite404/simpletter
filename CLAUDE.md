@@ -62,7 +62,7 @@ No push unless asked (then `git push --follow-tags`). Tags so far: v0.2.0, v0.2.
 **GitHub release (since 0.3.0, user's choice):** pushing a `v*` tag runs `.github/workflows/release.yml`
 (windows-latest: format / typecheck / unit / rust / `cargo fmt --check`, then `tauri-action@v1` builds NSIS and
 attaches it to a **draft** release named `simpletter vx.y.z`; text = the tagged commit's body + an install / SmartScreen
-note). The user checks and publishes it on GitHub. e2e isn't in CI (run it locally before tagging). Unsigned
+note; **all in English** — user's request 2026-10-10, the note was Japanese up to v0.4.0). The user checks and publishes it on GitHub. e2e isn't in CI (run it locally before tagging). Unsigned
 installer. Hand out only the CI build: a local release exe has `C:\Users\<account>\.cargo\registry\…` paths in it
 (panic locations of dependencies). No `gh` CLI here: follow the run on github.com (Actions tab) / ask the user. A failed run: fix, then
 move the tag (`git tag -d`, re-tag, `git push -f origin vx.y.z`) only after asking. GitHub sends **no** tag event when
